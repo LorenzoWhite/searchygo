@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- The same mark with fewer, heavier strokes, for sizes where the fine border would only blur. -->
+  <rect x="11" y="2" width="42" height="60" rx="6" fill="#76441f" stroke="#e4b750" stroke-width="5"/>
+  <circle cx="29" cy="27" r="9" fill="#29190e" stroke="#e4b750" stroke-width="6"/>
+  <path d="M37 35 45 45" fill="none" stroke="#e4b750" stroke-width="7" stroke-linecap="round"/>
+</svg>

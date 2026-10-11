@@ -1,0 +1,1896 @@
+/* Hallmark · route: custom (bespoke) · macrostructure: Catalogue · nav: N6 masthead · footer: Ft4 colophon
+ * idea: "a paper duel mat; each result is its card, set large enough to read"
+ * theme: custom · vibe: "old card stock, duel mat, gold print" · paper: oklch(19% 0.028 55) · accent: oklch(80% 0.13 85)
+ * display: Vollkorn SC · body: Vollkorn · axes: dark / roman-serif / chromatic-amber ~85°
+ * studied: no · context: inferred · pre-emit critique: P4 H4 E4 S5 R4 V5
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  overflow-x: clip;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-mat);
+  background-image: var(--texture-grain);
+  color: var(--color-on-mat);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: 1.5;
+  font-variant-numeric: lining-nums;
+}
+
+h1,
+h2,
+p,
+ol,
+ul,
+dl,
+dd,
+fieldset {
+  margin: 0;
+  padding: 0;
+}
+
+ol,
+ul {
+  list-style: none;
+}
+
+fieldset {
+  border: 0;
+  min-width: 0;
+}
+
+a {
+  color: inherit;
+}
+
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-gold);
+  outline-offset: 2px;
+}
+
+/*
+ * The mat is printed with a halftone screen: dots that swell toward the edges of the window and
+ * thin out to nothing behind the cards. They are drawn as soft grey spots over a soft grey
+ * gradient and then pushed to pure black and white, which is what makes them grow and shrink with
+ * the gradient. The gold laid over them is the ink, and the black drops out against the mat.
+ */
+.halftone {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  mix-blend-mode: screen;
+  opacity: var(--halftone-strength);
+  pointer-events: none;
+}
+
+.halftone::before,
+.halftone::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.halftone::before {
+  --spot: radial-gradient(closest-side, var(--halftone-core), var(--halftone-void));
+  background:
+    var(--spot) 0 0 / var(--halftone-pitch) var(--halftone-pitch),
+    /* A second set of spots in the gaps of the first turns the grid 45 degrees, as a print screen is. */
+    var(--spot) calc(var(--halftone-pitch) / 2) calc(var(--halftone-pitch) / 2) / var(--halftone-pitch)
+      var(--halftone-pitch),
+    radial-gradient(ellipse 62% 78% at 50% 38%, var(--halftone-void) 38%, var(--halftone-full)),
+    var(--halftone-void);
+  background-blend-mode: screen;
+  filter: contrast(18);
+}
+
+.halftone::after {
+  background: var(--color-gold-dim);
+  mix-blend-mode: multiply;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.page {
+  position: relative;
+  z-index: 1;
+  max-width: var(--page-width);
+  margin-inline: auto;
+  padding-inline: max(var(--page-gutter), env(safe-area-inset-left)) max(var(--page-gutter), env(safe-area-inset-right));
+}
+
+/* --- Masthead: the title printed across the top of the mat ----------------------------------- */
+
+.mast {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  gap: var(--space-2xs);
+  padding-block: var(--space-xl) var(--space-lg);
+  text-align: center;
+}
+
+.mast__name {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-sm);
+  width: 100%;
+  font-family: var(--font-display);
+  font-size: var(--text-display);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: 0.02em;
+  color: var(--color-gold);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+/* A printed rule running out from each side of the title; the entrance draws them outward. */
+.mast__rule {
+  height: var(--rule-width);
+  background: var(--color-mat-line);
+  transform: scaleX(0);
+  transform-origin: right center;
+}
+
+.mast__rule:last-child {
+  transform-origin: left center;
+}
+
+/* The title is stamped in gold foil, like the name on an Ultra Rare. */
+@supports (background-clip: text) or (-webkit-background-clip: text) {
+  .mast__title {
+    background: var(--texture-foil) 0% 50% / 320% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+}
+
+.mast__line,
+.field > label,
+.field > legend,
+.field__label,
+.field__value,
+.reading__label,
+.reading__chips,
+.results__count,
+.query__hint,
+.tile__type,
+.tile__rating,
+.tile__roles,
+.tile__label,
+.tile__fits span,
+.synergy__label,
+.tile__sides,
+.tile__games,
+.tile__stats,
+.foot {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.mast__line {
+  max-width: 100%;
+  font-size: var(--text-sm);
+  color: var(--color-on-mat-muted);
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+/* --- Zones: outlines printed on the mat ------------------------------------------------------ */
+
+.zone {
+  border: var(--rule-width) solid var(--color-mat-line);
+  border-radius: var(--radius-panel);
+  padding: var(--space-lg);
+  /* A zone is a clear patch of mat: the halftone stops at its outline. */
+  background: var(--color-mat) var(--texture-grain);
+}
+
+/* Words printed straight onto the mat keep a margin of clear mat around every letter, so the halftone never runs into them. */
+.mast__line,
+.results__count,
+.notice,
+.foot {
+  text-shadow:
+    0 0 0.3em var(--color-mat),
+    0 0 0.3em var(--color-mat),
+    0 0 0.12em var(--color-mat);
+}
+
+.main {
+  padding-bottom: var(--space-3xl);
+}
+
+.search {
+  display: grid;
+  gap: var(--space-lg);
+  max-width: var(--search-width);
+  margin-inline: auto;
+}
+
+.field {
+  display: grid;
+  gap: var(--space-2xs);
+  min-width: 0;
+}
+
+.field > label,
+.field > legend,
+.field__label {
+  font-size: var(--text-sm);
+  color: var(--color-gold-dim);
+}
+
+/* A label with the field's current value set against it at the far end of the line. */
+.field__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.field__value {
+  font-size: var(--text-sm);
+  font-variant-numeric: lining-nums tabular-nums;
+  color: var(--color-on-mat);
+  white-space: nowrap;
+}
+
+.field > legend {
+  margin-bottom: var(--space-2xs);
+}
+
+.query {
+  position: relative;
+}
+
+input[type="search"],
+select {
+  width: 100%;
+  height: var(--control-height);
+  border: var(--rule-width) solid var(--color-ink);
+  border-radius: var(--radius-control);
+  background-color: var(--color-parchment);
+  color: var(--color-ink);
+  font: inherit;
+  appearance: none;
+}
+
+input[type="search"] {
+  height: 3.25rem;
+  padding-inline: var(--space-md) var(--space-xl);
+  font-size: var(--text-md);
+}
+
+input[type="search"]::placeholder {
+  color: var(--color-ink-muted);
+  opacity: 1;
+}
+
+input[type="search"]::-webkit-search-cancel-button {
+  appearance: none;
+}
+
+.query__hint {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: var(--space-sm);
+  display: none;
+  align-items: center;
+  margin-block: auto;
+  height: 1.5rem;
+  padding-inline: var(--space-xs);
+  border: var(--rule-width) solid var(--color-parchment-line);
+  border-radius: var(--radius-control);
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+  pointer-events: none;
+}
+
+.query:focus-within .query__hint {
+  visibility: hidden;
+}
+
+/* How the search was understood, shown back so a wrong reading is visible and can be switched off. */
+.reading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2xs) var(--space-sm);
+  min-height: var(--control-height);
+}
+
+.reading__label {
+  font-size: var(--text-sm);
+  color: var(--color-on-mat-muted);
+  white-space: nowrap;
+}
+
+.reading__chips,
+.reading__examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2xs) var(--space-sm);
+}
+
+.reading__chips li {
+  padding: var(--space-3xs) var(--space-xs);
+  border: var(--rule-width) solid var(--color-gold-dim);
+  border-radius: var(--radius-control);
+  font-size: var(--text-sm);
+  color: var(--color-gold);
+}
+
+/*
+ * What the search is told to exclude. Each entry is outlined in the colour of an error, because it
+ * is the one thing on the mat that takes cards away.
+ */
+.exclude {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2xs) var(--space-sm);
+}
+
+.exclude__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2xs) var(--space-xs);
+}
+
+.exclude__list li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  padding-inline-start: var(--space-xs);
+  border: var(--rule-width) solid var(--color-error);
+  border-radius: var(--radius-control);
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--color-on-mat);
+}
+
+.exclude__list button {
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 0;
+  border-inline-start: var(--rule-width) solid var(--color-error);
+  background: transparent;
+  color: var(--color-error);
+  font: inherit;
+  font-size: var(--text-base);
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color var(--dur-micro) var(--ease-out);
+}
+
+.exclude__list button:active {
+  background: var(--color-mat-line);
+}
+
+.exclude__entry {
+  flex-basis: 100%;
+  display: grid;
+  gap: var(--space-2xs);
+}
+
+.exclude__entry[hidden] {
+  display: none;
+}
+
+.exclude__entry label {
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--color-gold-dim);
+}
+
+.exclude__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-xs);
+}
+
+.exclude__row input {
+  min-width: 0;
+  height: var(--control-height);
+  padding-inline: var(--space-sm);
+  border: var(--rule-width) solid var(--color-ink);
+  border-radius: var(--radius-control);
+  background: var(--color-parchment);
+  color: var(--color-ink);
+  font: inherit;
+}
+
+.exclude__row input::placeholder {
+  color: var(--color-ink-muted);
+  opacity: 1;
+}
+
+.exclude__note {
+  font-size: var(--text-sm);
+  color: var(--color-on-mat-muted);
+}
+
+select {
+  padding-inline: var(--space-sm) var(--space-lg);
+  /* A drawn chevron, since `appearance: none` removes the native one. */
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--color-ink-muted) 50%),
+    linear-gradient(135deg, var(--color-ink-muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 0.9rem) 50%,
+    calc(100% - 0.6rem) 50%;
+  background-size: 0.3rem 0.3rem;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+
+.filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-md);
+  align-items: end;
+}
+
+/* On a phone the filters fold away behind one button, so the cards are not a screen and a half down. */
+.filters[data-open="false"] {
+  display: none;
+}
+
+.filters > fieldset,
+.filters > .field--wide,
+.filters > .button {
+  grid-column: 1 / -1;
+}
+
+/* A short field that can sit beside another on all but the narrowest phones. */
+@media (min-width: 22.5rem) {
+  .filters > .field--half {
+    grid-column: auto;
+  }
+}
+
+.segments {
+  display: grid;
+  /* Sized by label, so "Monsters" gets the room that "All" does not need on a narrow phone. */
+  grid-auto-flow: column;
+  grid-auto-columns: auto;
+  /* The border is counted inside the height, so a row of segments lines up with a select beside it. */
+  height: var(--control-height);
+  border: var(--rule-width) solid var(--color-ink);
+  border-radius: var(--radius-control);
+  overflow: hidden;
+}
+
+.segment {
+  padding-inline: var(--space-xs);
+  border: 0;
+  border-inline-start: var(--rule-width) solid var(--color-parchment-line);
+  background: var(--color-parchment);
+  color: var(--color-ink);
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--dur-micro) var(--ease-out);
+}
+
+.segment:first-child {
+  border-inline-start: 0;
+}
+
+.segment[aria-pressed="true"] {
+  background: var(--color-gold);
+  font-weight: 600;
+}
+
+/* The chosen card type takes the colour of that card's frame. */
+.segments--kind .segment:nth-child(2)[aria-pressed="true"] {
+  background: var(--frame-effect);
+}
+
+.segments--kind .segment:nth-child(3)[aria-pressed="true"] {
+  background: var(--frame-spell);
+}
+
+.segments--kind .segment:nth-child(4)[aria-pressed="true"] {
+  background: var(--frame-trap);
+}
+
+.segments--rarity {
+  grid-auto-columns: minmax(0, 1fr);
+}
+
+/* Four equal squares with two letters each need no side padding, and on a phone have none to spare. */
+.segments--rarity .segment {
+  padding-inline: 0;
+}
+
+/*
+ * Rarity is how much foil a card gets: none, silver, gold, then a hologram. The foil is pinned to
+ * the window rather than to the stamp, so it catches the light differently as the page scrolls.
+ */
+.rarity,
+.segments--rarity .segment[aria-pressed="true"] {
+  background-color: var(--rarity-color);
+  background-image: var(--rarity-sheen, none);
+  background-size:
+    20rem auto,
+    13rem 13rem;
+  background-attachment: fixed;
+  background-blend-mode: overlay, normal;
+}
+
+.rarity--n {
+  --rarity-color: var(--rarity-n);
+}
+
+.rarity--r {
+  --rarity-color: var(--rarity-r);
+  --rarity-sheen: var(--texture-foil);
+}
+
+.rarity--sr {
+  --rarity-color: var(--rarity-sr);
+  --rarity-sheen: var(--texture-foil);
+}
+
+.rarity--ur {
+  --rarity-color: var(--holo-2);
+  --rarity-sheen:
+    var(--texture-foil), linear-gradient(115deg, var(--holo-1), var(--holo-2), var(--holo-3), var(--holo-4), var(--holo-1));
+}
+
+.segment:focus-visible {
+  outline-color: var(--color-ink);
+  outline-offset: -4px;
+}
+
+.segment:active {
+  background: var(--color-parchment-2);
+}
+
+/*
+ * Genesys points: a card slid along a ruler printed on the mat. The gold stretch of the ruler is
+ * the range that is let through, so it swaps sides with the "or less / or more" switch beside it.
+ */
+.slider {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.segments--compare {
+  grid-auto-columns: 2.25rem;
+}
+
+.segments--compare .segment {
+  padding-inline: 0;
+  font-size: var(--text-md);
+  line-height: 1;
+}
+
+.slider__range {
+  --thumb-width: 1rem;
+  --thumb-height: 1.5rem;
+  --rule: 3px;
+  /* Where the middle of the card sits along the ruler. */
+  --at-x: calc(var(--thumb-width) / 2 + (100% - var(--thumb-width)) * var(--at));
+  --below: var(--color-gold);
+  --above: var(--color-mat-line);
+  appearance: none;
+  width: 100%;
+  height: var(--control-height);
+  margin: 0;
+  /* Eleven ticks, one every ten points, hanging under the ruler. */
+  background: repeating-linear-gradient(
+      to right,
+      var(--color-mat-line) 0 var(--rule-width),
+      transparent var(--rule-width) calc((100% - var(--rule-width)) / 10)
+    )
+    calc(var(--thumb-width) / 2) calc(50% + 0.5rem) / calc(100% - var(--thumb-width) + var(--rule-width)) 0.375rem
+    no-repeat;
+  cursor: pointer;
+}
+
+.slider__range[data-reads="up"] {
+  --below: var(--color-mat-line);
+  --above: var(--color-gold);
+}
+
+.slider__range::-webkit-slider-runnable-track {
+  height: var(--rule);
+  border-radius: var(--rule);
+  background: linear-gradient(to right, var(--below) var(--at-x), var(--above) var(--at-x));
+}
+
+.slider__range::-moz-range-track {
+  height: var(--rule);
+  border-radius: var(--rule);
+  background: linear-gradient(to right, var(--below) var(--at-x), var(--above) var(--at-x));
+}
+
+/* The thumb is a face-down card. */
+.slider__range::-webkit-slider-thumb {
+  appearance: none;
+  box-sizing: border-box;
+  width: var(--thumb-width);
+  height: var(--thumb-height);
+  margin-top: calc((var(--rule) - var(--thumb-height)) / 2);
+  border: var(--rule-width) solid var(--color-gold);
+  border-radius: 2px;
+  background:
+    radial-gradient(ellipse 34% 26% at center, transparent 62%, var(--color-gold-dim) 66% 92%, transparent 96%),
+    var(--color-card-back);
+  box-shadow: 2px 2px 0 var(--color-mat);
+  cursor: grab;
+}
+
+.slider__range::-moz-range-thumb {
+  box-sizing: border-box;
+  width: var(--thumb-width);
+  height: var(--thumb-height);
+  border: var(--rule-width) solid var(--color-gold);
+  border-radius: 2px;
+  background:
+    radial-gradient(ellipse 34% 26% at center, transparent 62%, var(--color-gold-dim) 66% 92%, transparent 96%),
+    var(--color-card-back);
+  box-shadow: 2px 2px 0 var(--color-mat);
+  cursor: grab;
+}
+
+.slider__range:active::-webkit-slider-thumb {
+  border-color: var(--color-on-mat);
+  cursor: grabbing;
+}
+
+.slider__range:active::-moz-range-thumb {
+  border-color: var(--color-on-mat);
+  cursor: grabbing;
+}
+
+.range {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-xs);
+  color: var(--color-on-mat-muted);
+}
+
+.button {
+  justify-self: start;
+  height: var(--control-height);
+  padding-inline: var(--space-md);
+  border: var(--rule-width) solid var(--color-ink);
+  border-radius: var(--radius-control);
+  background: var(--color-parchment);
+  color: var(--color-ink);
+  font: inherit;
+  font-weight: 600;
+  text-shadow: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-micro) var(--ease-out),
+    transform var(--dur-micro) var(--ease-out);
+}
+
+.button:active {
+  transform: translateY(1px);
+}
+
+.button:disabled,
+input:disabled,
+select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.button[aria-busy="true"] {
+  cursor: progress;
+}
+
+/* A text link printed on the mat. */
+.button--quiet {
+  border-color: transparent;
+  padding-inline: 0;
+  background: transparent;
+  color: var(--color-gold);
+  font-weight: 400;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.button--more {
+  display: block;
+  margin: var(--space-xl) auto 0;
+}
+
+.button--more .deck {
+  box-shadow:
+    2px 2px 0 var(--color-parchment-line),
+    4px 4px 0 var(--color-ink-muted);
+}
+
+@media (hover: hover) {
+  input[type="search"]:hover,
+  select:hover,
+  .button:hover,
+  .segment:not([aria-pressed="true"]):hover {
+    background-color: var(--color-parchment-2);
+  }
+
+  .button--quiet:hover {
+    background-color: transparent;
+    text-decoration-thickness: 2px;
+  }
+
+  .exclude__list button:hover {
+    background: var(--color-mat-2);
+  }
+
+  .exclude__row input:hover {
+    background-color: var(--color-parchment-2);
+  }
+
+  .deckbutton:hover,
+  .deckbox__close:hover,
+  .deckbox__name:hover {
+    border-color: var(--color-gold);
+  }
+
+  .deckrow__actions button:not(:disabled):hover {
+    background: var(--color-parchment-2);
+  }
+
+  .slider__range:hover::-webkit-slider-thumb {
+    border-color: var(--color-on-mat);
+  }
+
+  .slider__range:hover::-moz-range-thumb {
+    border-color: var(--color-on-mat);
+  }
+}
+
+/* --- Results: cards laid out on the mat ------------------------------------------------------ */
+
+.results {
+  position: relative;
+  margin-top: var(--space-xl);
+}
+
+/* Where cards that no longer match are shown falling away. */
+.graveyard {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* The deck the cards are dealt from: a small stack of card backs. */
+.deck {
+  position: relative;
+  display: inline-block;
+  width: 1rem;
+  height: 1.4rem;
+  margin-inline-end: var(--space-sm);
+  vertical-align: -0.35rem;
+  border-radius: 2px;
+  background: var(--color-card-back);
+  box-shadow:
+    2px 2px 0 var(--color-mat-line),
+    4px 4px 0 var(--color-mat-2);
+}
+
+.deck::after {
+  content: "";
+  position: absolute;
+  inset: 24% 20%;
+  border: var(--rule-width) solid var(--color-gold-dim);
+  border-radius: 50%;
+}
+
+/* What a synergy search understood about the deck, and the kinds of card it went looking for. */
+.synergy {
+  display: grid;
+  gap: var(--space-sm);
+  max-width: var(--search-width);
+  margin: 0 auto var(--space-xl);
+}
+
+.synergy strong {
+  color: var(--color-gold);
+  font-weight: 600;
+}
+
+.synergy__label {
+  font-size: var(--text-sm);
+  color: var(--color-gold-dim);
+}
+
+.synergy__hooks {
+  display: grid;
+  gap: var(--space-xs);
+  color: var(--color-on-mat-muted);
+}
+
+.synergy__hooks li {
+  padding-inline-start: var(--space-sm);
+  border-inline-start: var(--rule-width) solid var(--color-mat-line);
+}
+
+.synergy__note {
+  font-size: var(--text-sm);
+  color: var(--color-on-mat-muted);
+}
+
+.results__count {
+  padding-bottom: var(--space-sm);
+  border-bottom: var(--rule-width) solid var(--color-mat-line);
+  font-size: var(--text-sm);
+  color: var(--color-gold);
+}
+
+.results__note {
+  color: var(--color-on-mat-muted);
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--tile-min)), 1fr));
+  /* Tiles in a row stretch to the tallest one, so their frames line up. */
+  gap: var(--space-lg);
+  margin-top: var(--space-lg);
+}
+
+.cards--stale {
+  opacity: 0.55;
+}
+
+/* A tile is the card set large enough to read: name plate, picture, text box, ATK/DEF. */
+.tile {
+  display: grid;
+  grid-template-columns: var(--card-art-width) minmax(0, 1fr);
+  grid-template-areas:
+    "plate plate"
+    "art   face"
+    "text  text"
+    "foot  foot";
+  gap: var(--space-sm) var(--space-md);
+  padding: 0 var(--space-md) var(--space-sm);
+  border: var(--rule-width) solid var(--color-ink);
+  border-radius: var(--radius-panel);
+  background: var(--color-parchment) var(--texture-paper) 12% 8% / 68rem auto;
+  color: var(--color-ink-2);
+  overflow: hidden;
+}
+
+/* Each card is cut from a different part of the sheet, so no two share the same stains. */
+.tile:nth-child(3n + 2) {
+  background-position: 88% 62%;
+}
+
+.tile:nth-child(3n) {
+  background-position: 42% 96%;
+}
+
+.tile:nth-child(4n) {
+  background-size: 82rem auto;
+}
+
+/* An empty zone printed on the mat, waiting for a card. */
+.tile.tile--empty {
+  min-height: 12rem;
+  border: var(--rule-width) dashed var(--color-mat-line);
+  background: var(--color-mat-2);
+}
+
+.tile__plate {
+  grid-area: plate;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  min-height: var(--control-height);
+  /* The plate runs edge to edge across the top of the tile. */
+  margin-inline: calc(-1 * var(--space-md));
+  padding: var(--space-2xs) var(--space-md);
+  border-bottom: var(--rule-width) solid var(--color-ink);
+  /* The frame colour is printed on the same stock, so the paper shows through it. */
+  background: var(--frame-color) var(--texture-paper) 30% 40% / 56rem auto;
+  background-blend-mode: multiply;
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: 0.01em;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+.tile__plate a {
+  text-decoration: none;
+  min-width: 0;
+}
+
+.tile :focus-visible {
+  outline-color: var(--color-ink);
+}
+
+@media (hover: hover) {
+  .tile__sides button:hover {
+    color: var(--color-ink);
+  }
+
+  .copies button:not(:disabled):hover {
+    background: var(--color-parchment-2);
+  }
+
+  .tile__plate a:hover {
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 0.16em;
+  }
+}
+
+.frame--normal { --frame-color: var(--frame-normal); }
+.frame--effect { --frame-color: var(--frame-effect); }
+.frame--ritual { --frame-color: var(--frame-ritual); }
+.frame--fusion { --frame-color: var(--frame-fusion); }
+.frame--synchro { --frame-color: var(--frame-synchro); }
+.frame--spell { --frame-color: var(--frame-spell); }
+.frame--trap { --frame-color: var(--frame-trap); }
+
+/* The two dark frames carry light lettering, as the cards do. */
+.frame--xyz { --frame-color: var(--frame-xyz); }
+.frame--link { --frame-color: var(--frame-link); }
+
+.tile__plate.frame--xyz,
+.tile__plate.frame--link {
+  color: var(--color-on-mat);
+}
+
+.tile__plate.frame--xyz :focus-visible,
+.tile__plate.frame--link :focus-visible {
+  outline-color: var(--color-gold);
+}
+
+/* The Attribute orb from the top corner of a monster card. */
+.orb {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: var(--orb-size);
+  height: var(--orb-size);
+  border: var(--rule-width) solid var(--color-ink);
+  border-radius: 50%;
+  background: var(--orb-color);
+  color: var(--color-on-mat);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.orb--dark { --orb-color: var(--attribute-dark); }
+.orb--water { --orb-color: var(--attribute-water); }
+.orb--fire { --orb-color: var(--attribute-fire); }
+.orb--earth { --orb-color: var(--attribute-earth); }
+
+.orb--light { --orb-color: var(--attribute-light); }
+.orb--wind { --orb-color: var(--attribute-wind); }
+.orb--divine { --orb-color: var(--attribute-divine); }
+
+.orb--light,
+.orb--wind,
+.orb--divine {
+  color: var(--color-ink);
+}
+
+/* The pocket a card sits in. It stays behind when the card lifts, like a slot in a binder page. */
+/* The picture's side of the tile: the card in its pocket, and under it the controls that put it in the deck. */
+.tile__slot {
+  grid-area: art;
+  align-self: start;
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.tile__pocket {
+  display: block;
+  border-radius: var(--radius-art);
+  background: var(--color-parchment-2);
+  box-shadow: inset 0 0 0 var(--rule-width) var(--color-parchment-line);
+}
+
+.tile__art {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 268 / 391;
+  border-radius: var(--radius-art);
+}
+
+/*
+ * How many of the card are in the deck, as card-shaped pips with a button either side. With none
+ * in the deck there is nothing to count or take out, so it is one button that says what it does.
+ */
+.copies {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  height: 1.75rem;
+  border: var(--rule-width) solid var(--color-ink);
+  border-radius: var(--radius-control);
+  background: var(--color-parchment);
+  overflow: hidden;
+}
+
+.copies button {
+  width: 1.75rem;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color var(--dur-micro) var(--ease-out);
+}
+
+.copies__less {
+  border-inline-end: var(--rule-width) solid var(--color-parchment-line);
+}
+
+.copies__more {
+  border-inline-start: var(--rule-width) solid var(--color-parchment-line);
+}
+
+.copies button:active {
+  background: var(--color-parchment-line);
+}
+
+.copies button:disabled {
+  color: var(--color-parchment-line);
+  cursor: not-allowed;
+}
+
+.copies button:focus-visible {
+  outline-offset: -3px;
+}
+
+.copies__pips {
+  display: flex;
+  justify-content: center;
+  gap: 3px;
+}
+
+.copies__pips span {
+  width: 0.5rem;
+  height: 0.72rem;
+  border: var(--rule-width) solid var(--color-ink-muted);
+  border-radius: 1px;
+}
+
+.copies__pips span[data-filled="true"] {
+  border-color: var(--color-ink);
+  background: var(--color-card-back);
+}
+
+.copies__word {
+  display: none;
+  font-size: var(--text-xs);
+  letter-spacing: 0.04em;
+}
+
+.copies[data-copies="0"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.copies[data-copies="0"] .copies__less,
+.copies[data-copies="0"] .copies__pips {
+  display: none;
+}
+
+.copies[data-copies="0"] .copies__more {
+  width: 100%;
+  border: 0;
+}
+
+.copies[data-copies="0"] .copies__word {
+  display: inline;
+}
+
+/* Stands in for a card with no image: a blank card in its frame colour. */
+.tile__art--missing {
+  background: var(--frame-color);
+  box-shadow: inset 0 0 0 var(--rule-width) var(--color-ink);
+}
+
+.tile__face {
+  grid-area: face;
+  display: grid;
+  align-content: start;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.stars {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3xs);
+}
+
+/* A gold star on a red disc, drawn rather than typed so it looks the same everywhere. */
+.star {
+  position: relative;
+  width: var(--star-size);
+  height: var(--star-size);
+  border-radius: 50%;
+  background: var(--star-disc);
+}
+
+.star::before {
+  content: "";
+  position: absolute;
+  inset: 12%;
+  background: var(--star);
+  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+}
+
+.stars--rank .star {
+  background: var(--color-ink);
+}
+
+.tile__type {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--color-ink);
+  overflow-wrap: anywhere;
+}
+
+.tile__rating {
+  font-size: var(--text-sm);
+  color: var(--color-ink);
+}
+
+.tile__roles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2xs);
+  font-size: var(--text-xs);
+  color: var(--color-ink-muted);
+}
+
+.tile__roles li {
+  padding: 0 var(--space-xs);
+  border: var(--rule-width) solid var(--color-parchment-line);
+  border-radius: var(--radius-control);
+  white-space: nowrap;
+}
+
+/* In a synergy search: which of the deck's wants this card answers. It is why the card is here. */
+.tile__fits {
+  padding-inline-start: var(--space-xs);
+  border-inline-start: 2px solid var(--color-ink);
+  font-size: var(--text-sm);
+  color: var(--color-ink);
+}
+
+.tile__fits span {
+  margin-inline-end: var(--space-2xs);
+  font-size: var(--text-xs);
+  color: var(--color-ink-muted);
+}
+
+.tile__text {
+  grid-area: text;
+  display: grid;
+  /* In a tile stretched to match a taller neighbour, the paragraphs stay together at the top. */
+  align-content: start;
+  gap: var(--space-xs);
+  /* A tile can be much wider than a comfortable line of text. */
+  max-width: 70ch;
+  min-width: 0;
+  /* Gives depth to the text turning over. */
+  perspective: 50rem;
+}
+
+/* Two tabs over the text box: the short version of what the card does, and the card's own wording. */
+.tile__sides {
+  display: flex;
+  gap: var(--space-md);
+  border-bottom: var(--rule-width) solid var(--color-parchment-line);
+  font-size: var(--text-xs);
+}
+
+.tile__sides button {
+  min-height: 1.75rem;
+  /* The tab's own rule sits on top of the line under the row. */
+  margin-bottom: calc(-1 * var(--rule-width));
+  padding: 0;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--color-ink-muted);
+  font: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  transition:
+    color var(--dur-micro) var(--ease-out),
+    border-color var(--dur-micro) var(--ease-out);
+}
+
+.tile__sides button[aria-pressed="true"] {
+  border-bottom-color: var(--color-ink);
+  color: var(--color-ink);
+  cursor: default;
+}
+
+.tile__sides button:active {
+  color: var(--color-ink);
+}
+
+/* The side of the text box that is showing. It turns about its top edge. */
+.tile__copy {
+  display: grid;
+  gap: var(--space-xs);
+  min-width: 0;
+  transform-origin: 50% 0;
+}
+
+/* The plain-English summary is set like a card's flavour text. */
+.tile__summary {
+  font-style: italic;
+  color: var(--color-ink);
+}
+
+.tile__effect {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.tile__label {
+  display: block;
+  font-size: var(--text-sm);
+  color: var(--color-ink);
+}
+
+/* Under a rule at the foot of the text box: what the card costs to use, then ATK and DEF as on the card. */
+.tile__foot {
+  grid-area: foot;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2xs) var(--space-sm);
+  max-width: 70ch;
+  padding-top: var(--space-xs);
+  border-top: var(--rule-width) solid var(--color-ink);
+}
+
+.tile__foot:empty {
+  display: none;
+}
+
+.tile__games {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2xs) var(--space-sm);
+  font-size: var(--text-xs);
+  color: var(--color-ink-muted);
+}
+
+.tile__games > div {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  white-space: nowrap;
+}
+
+/*
+ * The marks a Forbidden & Limited list is printed with: a red ring holding the number of copies a
+ * deck may run, and for a Forbidden card the ring struck through.
+ */
+.limit {
+  display: inline-grid;
+  place-items: center;
+  width: 1.375rem;
+  height: 1.375rem;
+  border: 2px solid var(--color-forbidden);
+  border-radius: 50%;
+  color: var(--color-ink);
+  font-weight: 700;
+  font-variant-numeric: lining-nums;
+  line-height: 1;
+}
+
+.limit--0 {
+  background: linear-gradient(to bottom right, transparent 44%, var(--color-forbidden) 44% 56%, transparent 56%);
+}
+
+/* The square foil stamp from the corner of a card, carrying the rarity. */
+.rarity {
+  display: inline-grid;
+  place-items: center;
+  min-width: 2rem;
+  height: 1.375rem;
+  padding-inline: var(--space-2xs);
+  border: var(--rule-width) solid var(--color-ink);
+  border-radius: var(--radius-art);
+  color: var(--color-ink);
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* Genesys points are a price, so they are written on a price tag: a pointed end with a punched hole. */
+.tag {
+  position: relative;
+  isolation: isolate;
+  padding: 0 var(--space-xs) 0 1.15rem;
+  background: var(--color-ink-muted);
+  clip-path: polygon(0.5rem 0, 100% 0, 100% 100%, 0.5rem 100%, 0 50%);
+  color: var(--color-ink);
+  font-variant-numeric: lining-nums tabular-nums;
+  line-height: 1.375rem;
+}
+
+.tag::before {
+  content: "";
+  position: absolute;
+  inset: var(--rule-width);
+  z-index: -1;
+  background: radial-gradient(circle at 0.6rem 50%, var(--color-ink-muted) 0.12rem, var(--color-tag) 0.16rem);
+  clip-path: inherit;
+}
+
+.tag--costed {
+  font-weight: 700;
+}
+
+.tile__stats {
+  display: flex;
+  gap: var(--space-md);
+  margin-inline-start: auto;
+  font-size: var(--text-base);
+  font-weight: 700;
+  font-variant-numeric: lining-nums tabular-nums;
+  color: var(--color-ink);
+}
+
+.notice {
+  display: grid;
+  gap: var(--space-md);
+  padding-block: var(--space-lg);
+  max-width: 60ch;
+}
+
+.notice strong {
+  color: var(--color-gold);
+}
+
+.notice--error strong {
+  color: var(--color-error);
+}
+
+/* --- The deck: built beside the search ------------------------------------------------------- */
+
+.shell {
+  transition: padding var(--dur-panel) var(--ease-out);
+}
+
+/* The deck waits in the bottom right corner of the mat, where the Deck Zone is on a duel field. */
+.deckbutton {
+  position: fixed;
+  inset-block-end: max(var(--space-md), env(safe-area-inset-bottom));
+  inset-inline-end: max(var(--page-gutter), env(safe-area-inset-right));
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  height: 3rem;
+  padding-inline: var(--space-md) var(--space-sm);
+  border: var(--rule-width) solid var(--color-gold-dim);
+  border-radius: var(--radius-control);
+  background: var(--color-mat-2);
+  /* A rim of clear mat, so the button keeps its edge when cards scroll under it. */
+  box-shadow: 0 0 0 0.25rem var(--color-mat);
+  color: var(--color-gold);
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition:
+    border-color var(--dur-micro) var(--ease-out),
+    transform var(--dur-micro) var(--ease-out);
+}
+
+.deckbutton[hidden] {
+  display: none;
+}
+
+.deckbutton:active {
+  transform: translateY(1px);
+}
+
+.deckbutton__count {
+  min-width: 2.25em;
+  margin-inline-start: var(--space-2xs);
+  padding-inline-start: var(--space-sm);
+  border-inline-start: var(--rule-width) solid var(--color-mat-line);
+  color: var(--color-on-mat);
+  font-variant-numeric: lining-nums tabular-nums;
+  text-align: center;
+}
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 19;
+  background: var(--color-scrim);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-panel) var(--ease-out);
+}
+
+.shell[data-deck="open"] .scrim {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* The deck itself: a panel that slides in over the right-hand edge of the mat. */
+.deckbox {
+  position: fixed;
+  inset-block: 0;
+  inset-inline-end: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  width: min(var(--deck-width), 100%);
+  padding: var(--space-md) max(var(--space-md), env(safe-area-inset-right)) max(var(--space-lg), env(safe-area-inset-bottom))
+    var(--space-md);
+  border-inline-start: var(--rule-width) solid var(--color-gold-dim);
+  background: var(--color-mat-2) var(--texture-grain);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  transform: translateX(100%);
+  visibility: hidden;
+  /* Hidden only once it has finished sliding away, so it cannot be tabbed into while out of sight. */
+  transition:
+    transform var(--dur-panel) var(--ease-out),
+    visibility 0s linear var(--dur-panel);
+}
+
+.deckbox[data-open="true"] {
+  transform: none;
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+.deckbox:focus-visible {
+  outline-offset: -2px;
+}
+
+.deckbox > * {
+  flex: none;
+}
+
+.deckbox__head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.deckbox__name {
+  min-width: 0;
+  height: var(--control-height);
+  padding: 0;
+  border: 0;
+  border-bottom: var(--rule-width) solid var(--color-mat-line);
+  border-radius: 0;
+  background: transparent;
+  color: var(--color-on-mat);
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.deckbox__name::placeholder {
+  color: var(--color-on-mat-muted);
+  opacity: 1;
+}
+
+.deckbox__close {
+  width: var(--control-height);
+  height: var(--control-height);
+  border: var(--rule-width) solid var(--color-mat-line);
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--color-on-mat);
+  font: inherit;
+  font-size: var(--text-md);
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    border-color var(--dur-micro) var(--ease-out),
+    transform var(--dur-micro) var(--ease-out);
+}
+
+.deckbox__close:active {
+  transform: translateY(1px);
+}
+
+/* What the whole deck adds up to where that is counted: Genesys points, and Master Duel rarities. */
+.deckbox__tally {
+  display: grid;
+  gap: var(--space-xs);
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.deckbox__tally > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2xs) var(--space-sm);
+}
+
+.deckbox__tally dt {
+  color: var(--color-gold-dim);
+}
+
+.deckbox__tally dd {
+  color: var(--color-on-mat);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+.deckbox__tally dd[data-over="true"],
+.deckbox__zonehead p[data-over="true"] {
+  color: var(--color-error);
+}
+
+/* The cards that break a list, named under its line of the tally. */
+.deckbox__breaches {
+  flex-basis: 100%;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--color-on-mat-muted);
+}
+
+.deckbox__rarities,
+.deckbox__rarities > span {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2xs) var(--space-sm);
+}
+
+.deckbox__rarities > span {
+  gap: var(--space-2xs);
+}
+
+/* Each section of the deck is a zone of its own on the mat. */
+.deckbox__zone {
+  display: grid;
+  gap: var(--space-xs);
+  padding: var(--space-sm);
+  border: var(--rule-width) solid var(--color-mat-line);
+  border-radius: var(--radius-panel);
+  background: var(--color-mat);
+}
+
+.deckbox__zonehead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.deckbox__zonehead h2 {
+  font-size: inherit;
+  font-weight: inherit;
+  color: var(--color-gold);
+}
+
+.deckbox__zonehead p {
+  color: var(--color-on-mat);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+.deckbox__zonehead p[data-short="true"] {
+  color: var(--color-on-mat-muted);
+}
+
+.deckbox__kinds,
+.deckbox__empty,
+.deckbox__note,
+.deckbox__status {
+  font-size: var(--text-sm);
+  color: var(--color-on-mat-muted);
+}
+
+.deckbox__list {
+  display: grid;
+  gap: var(--space-3xs);
+}
+
+/* A card in the deck is its name plate, with a strip of its picture at the near end. */
+.deckrow {
+  display: grid;
+  grid-template-columns: 2.75rem minmax(0, 1fr) auto auto;
+  align-items: center;
+  min-height: 2.25rem;
+  border: var(--rule-width) solid var(--color-ink);
+  border-radius: var(--radius-art);
+  background: var(--frame-color) var(--texture-paper) 30% 40% / 56rem auto;
+  background-blend-mode: multiply;
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  overflow: hidden;
+}
+
+.deckrow.frame--xyz,
+.deckrow.frame--link {
+  color: var(--color-on-mat);
+}
+
+.deckrow__art {
+  align-self: stretch;
+  border-inline-end: var(--rule-width) solid var(--color-ink);
+  /* Enlarged and shifted so the strip shows the artwork rather than the card's frame. */
+  background: var(--color-parchment-2) 50% 26% / 150% auto no-repeat;
+}
+
+.deckrow__name {
+  padding-inline: var(--space-xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.deckrow__copies {
+  padding-inline-end: var(--space-xs);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+.deckrow__actions {
+  display: flex;
+  align-self: stretch;
+}
+
+.deckrow__actions button {
+  min-width: 1.75rem;
+  padding: 0 var(--space-2xs);
+  border: 0;
+  border-inline-start: var(--rule-width) solid var(--color-ink);
+  background: var(--color-parchment);
+  color: var(--color-ink);
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color var(--dur-micro) var(--ease-out);
+}
+
+.deckrow__actions .deckrow__move {
+  min-width: 2.75rem;
+  font-size: var(--text-xs);
+  letter-spacing: 0.04em;
+}
+
+.deckrow__actions button:active {
+  background: var(--color-parchment-line);
+}
+
+.deckrow__actions button:disabled {
+  color: var(--color-parchment-line);
+  cursor: not-allowed;
+}
+
+.deckrow__actions button:focus-visible {
+  outline-color: var(--color-ink);
+  outline-offset: -3px;
+}
+
+.deckbox__actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-xs);
+}
+
+.deckbox__actions .button {
+  justify-self: stretch;
+  padding-inline: var(--space-xs);
+}
+
+.deckbox__actions .button--quiet {
+  justify-self: start;
+}
+
+.deckbox__import {
+  display: grid;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+  border: var(--rule-width) dashed var(--color-mat-line);
+  border-radius: var(--radius-panel);
+}
+
+.deckbox__import[hidden] {
+  display: none;
+}
+
+/* The file chooser is a label dressed as a button; its real input is kept for the keyboard. */
+.deckbox__file {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: stretch;
+}
+
+.deckbox__file:focus-within {
+  outline: 2px solid var(--color-gold);
+  outline-offset: 2px;
+}
+
+.deckbox textarea,
+.deckbox__link {
+  width: 100%;
+  padding: var(--space-xs) var(--space-sm);
+  border: var(--rule-width) solid var(--color-ink);
+  border-radius: var(--radius-control);
+  background: var(--color-parchment);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+  resize: vertical;
+}
+
+.deckbox__status {
+  min-height: 1.5em;
+}
+
+/* --- Colophon: the small print at the foot of a card ----------------------------------------- */
+
+.foot {
+  /* Room is left under the small print for the deck button that floats over the corner. */
+  padding-block: var(--space-md) calc(4.5rem + env(safe-area-inset-bottom));
+  border-top: var(--rule-width) solid var(--color-mat-line);
+  font-size: var(--text-xs);
+  line-height: 1.6;
+  color: var(--color-on-mat-muted);
+}
+
+.foot p {
+  max-width: 75ch;
+}
+
+.foot a {
+  color: var(--color-gold);
+  text-underline-offset: 0.2em;
+}
+
+@media (hover: hover) {
+  .foot a:hover {
+    text-decoration-thickness: 2px;
+  }
+}
+
+/* --- Wider screens --------------------------------------------------------------------------- */
+
+@media (min-width: 40rem) {
+  .filters__toggle {
+    display: none;
+  }
+
+  .filters,
+  .filters[data-open="false"] {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .filters > fieldset:not(:first-child),
+  .filters > .field--wide,
+  .filters > .button {
+    grid-column: auto;
+  }
+
+  /* With room beside the picture, the text box runs down its right-hand side. */
+  .tile {
+    grid-template-columns: var(--card-art-width-wide) minmax(0, 1fr);
+    grid-template-areas:
+      "plate plate"
+      "art   face"
+      "art   text"
+      "art   foot";
+    grid-template-rows: auto auto 1fr auto;
+  }
+
+  /* The picture sits in the middle of its side of the tile, however long the text beside it runs. */
+  .tile__slot {
+    align-self: center;
+  }
+}
+
+/* On a wide screen the deck stands beside the search instead of over it, and the cards make room. */
+@media (min-width: 80rem) {
+  .shell[data-deck="open"] {
+    padding-inline-end: var(--deck-width);
+    --tile-min: 28rem;
+  }
+
+  .scrim {
+    display: none;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .query__hint {
+    display: flex;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0ms !important;
+  }
+
+  /* No entrance to draw them, so the rules are simply there. */
+  .mast__rule {
+    transform: none;
+  }
+
+  /* The foil stays put on its stamp instead of shifting as the page scrolls. */
+  .rarity,
+  .segments--rarity .segment[aria-pressed="true"] {
+    background-attachment: scroll;
+  }
+}

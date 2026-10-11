@@ -1,0 +1,123 @@
+/* Design tokens — the paper duel mat.
+   A dark umber mat (the colour of a card back) with gold printing, and parchment panels set like a
+   card's text box. Every colour, font, size and spacing value used by the site is named here. */
+:root {
+  /* The mat: the page surface and what is printed on it */
+  --color-mat: oklch(19% 0.028 55);
+  --color-mat-2: oklch(23% 0.032 55);
+  --color-mat-line: oklch(40% 0.05 70);
+  --color-gold: oklch(80% 0.13 85);
+  --color-gold-dim: oklch(68% 0.1 80);
+  --color-on-mat: oklch(92% 0.03 88);
+  --color-on-mat-muted: oklch(77% 0.035 82);
+  --color-error: oklch(76% 0.14 30);
+  --color-card-back: oklch(44% 0.085 55);
+  /* The mat seen through a dimming layer, behind the deck when it lies over the search */
+  --color-scrim: oklch(12% 0.02 55 / 0.72);
+
+  /* Parchment: the reading surface, like a card's text box */
+  --color-parchment: oklch(93% 0.04 90);
+  --color-parchment-2: oklch(89.5% 0.045 88);
+  --color-parchment-line: oklch(55% 0.06 72);
+  --color-ink: oklch(22% 0.02 55);
+  --color-ink-2: oklch(32% 0.025 55);
+  --color-ink-muted: oklch(38% 0.03 60);
+
+  /* Card frame colours — data, not decoration: the colours players know from the physical cards */
+  --frame-normal: oklch(80% 0.1 88);
+  --frame-effect: oklch(70% 0.12 55);
+  --frame-ritual: oklch(68% 0.09 245);
+  --frame-fusion: oklch(67% 0.1 310);
+  --frame-synchro: oklch(93% 0.012 90);
+  --frame-xyz: oklch(27% 0.012 270);
+  --frame-link: oklch(42% 0.12 255);
+  --frame-spell: oklch(68% 0.08 178);
+  --frame-trap: oklch(68% 0.12 350);
+
+  /* Attribute orbs */
+  --attribute-dark: oklch(40% 0.13 310);
+  --attribute-light: oklch(86% 0.14 95);
+  --attribute-water: oklch(50% 0.13 245);
+  --attribute-fire: oklch(52% 0.18 30);
+  --attribute-earth: oklch(42% 0.05 75);
+  --attribute-wind: oklch(68% 0.14 150);
+  --attribute-divine: oklch(76% 0.12 80);
+
+  /* Master Duel rarities, as the foil a card of that rarity gets: plain stock, silver, gold, and
+     the four tints of a hologram */
+  --rarity-n: oklch(83% 0.02 85);
+  --rarity-r: oklch(82% 0.06 240);
+  --rarity-sr: oklch(85% 0.12 88);
+  --holo-1: oklch(85% 0.09 350);
+  --holo-2: oklch(90% 0.11 100);
+  --holo-3: oklch(87% 0.08 195);
+  --holo-4: oklch(83% 0.09 300);
+
+  /* The red of the marks on a Forbidden & Limited list */
+  --color-forbidden: oklch(50% 0.19 28);
+
+  /* The manila of a price tag */
+  --color-tag: oklch(85% 0.065 82);
+
+  /* Level stars: a gold star on a red disc, as printed under a monster's name */
+  --star-disc: oklch(50% 0.18 32);
+  --star: oklch(90% 0.15 95);
+
+  /* Type — one sturdy book serif, with its small capitals for names and labels */
+  --font-display: var(--font-vollkorn-sc), "Vollkorn SC", ui-serif, Georgia, serif;
+  --font-body: var(--font-vollkorn), "Vollkorn", ui-serif, Georgia, serif;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-md: 1.25rem;
+  --text-display: clamp(1.6rem, 4vw + 0.8rem, 3rem);
+
+  /* Space — 4pt scale */
+  --space-3xs: 0.125rem;
+  --space-2xs: 0.25rem;
+  --space-xs: 0.5rem;
+  --space-sm: 0.75rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2.5rem;
+  --space-2xl: 4rem;
+  --space-3xl: 6rem;
+
+  --page-gutter: clamp(1rem, 4vw, 2.5rem);
+  --page-width: 86rem;
+  --search-width: 46rem;
+  --tile-min: 36rem;
+  --control-height: 2.75rem;
+  --deck-width: 26rem;
+  --card-art-width: 6.5rem;
+  --card-art-width-wide: 9rem;
+  --star-size: 0.95rem;
+  --orb-size: 1.5rem;
+  --radius-control: 4px;
+  --radius-panel: 5px;
+  --radius-art: 3px;
+  --rule-width: 1px;
+
+  /* Photographed textures from Texturelabs: antique paper for the cards and gold foil for the
+     title. Prepared copies live in public/textures. */
+  --texture-paper: url("/textures/old-paper.webp");
+  --texture-foil: url("/textures/gold-foil.webp");
+
+  /* The halftone screen printed on the mat. The three greys are only the recipe: a spot's centre,
+     the blank between spots, and the heaviest tone at the window's edge. They are thresholded
+     into dots, so nudging them changes how large the dots get, not what colour they are. */
+  --halftone-pitch: 0.75rem;
+  --halftone-core: oklch(60% 0 0);
+  --halftone-void: oklch(0% 0 0);
+  --halftone-full: oklch(50% 0 0);
+  --halftone-strength: 0.5;
+
+  /* Fine grain over the whole mat, so it does not read as a flat fill between the dots */
+  --texture-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-micro: 120ms;
+  --dur-panel: 260ms;
+}

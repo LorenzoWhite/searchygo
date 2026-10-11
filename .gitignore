@@ -1,0 +1,33 @@
+node_modules/
+.next/
+next-env.d.ts
+*.tsbuildinfo
+
+# secrets: every env file except the blank template
+.env
+.env.*
+!.env.example
+
+# macOS folder settings
+.DS_Store
+
+# re-downloadable with `pnpm cards:fetch`
+data/raw/
+
+# tagging run state (batch ids, failures) — the tags themselves are committed
+data/tags/state.json
+data/tags/failures.jsonl
+data/tags/invalid-replies.jsonl
+
+# synergy run failures and raw model replies — the profiles themselves are committed
+data/synergy/failures.jsonl
+data/synergy/replies.jsonl
+
+# safety copies made before rewriting the tags file
+data/tags/backup/
+
+# card images, re-downloadable with `pnpm cards:images`
+public/cards/
+
+# original texture downloads from Texturelabs; their licence does not allow redistributing them
+design-src/texturelabs/

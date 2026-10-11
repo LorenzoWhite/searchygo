@@ -1,0 +1,40 @@
+/** Server-only: loads the card data and tags from disk once and keeps the search index in memory. */
+import fs from "node:fs/promises";
+import path from "node:path";
+import type { Card } from "./card.ts";
+import { SearchIndex } from "./search.ts";
+import type { ArchetypeProfile, ProfiledArchetype } from "./synergy.ts";
+import type { CardTags, TaggedCard } from "./tags.ts";
+
+const DATA_DIR = path.join(process.cwd(), "data");
+
+async function load(): Promise<SearchIndex> {
+  const cards = JSON.parse(await fs.readFile(path.join(DATA_DIR, "cards.json"), "utf8")) as Card[];
+
+  const tagsById = new Map<number, CardTags>();
+  // The tags file does not exist until the tagging job has run; search works without it.
+  const tagLines = await fs.readFile(path.join(DATA_DIR, "tags/tags.jsonl"), "utf8").catch(() => "");
+  for (const line of tagLines.split("\n")) {
+    if (!line) continue;
+    const row = JSON.parse(line) as TaggedCard;
+    tagsById.set(row.id, row.tags);
+  }
+
+  const profiles = new Map<string, ArchetypeProfile>();
+  // Likewise the synergy profiles: without them a synergy search is read as an ordinary one.
+  const profileLines = await fs.readFile(path.join(DATA_DIR, "synergy/profiles.jsonl"), "utf8").catch(() => "");
+  for (const line of profileLines.split("\n")) {
+    if (!line) continue;
+    const row = JSON.parse(line) as ProfiledArchetype;
+    profiles.set(row.archetype, row.profile);
+  }
+
+  return new SearchIndex(cards, tagsById, profiles);
+}
+
+let index: Promise<SearchIndex> | undefined;
+
+export function getSearchIndex(): Promise<SearchIndex> {
+  index ??= load();
+  return index;
+}

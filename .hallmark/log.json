@@ -1,0 +1,22 @@
+[
+  {
+    "date": "2026-10-10",
+    "macrostructure": "Catalogue",
+    "theme": "custom",
+    "theme_axes": "dark / roman-serif / chromatic-amber ~85",
+    "vibe": "old card stock, duel mat, gold print",
+    "enrichment": "photographed textures (folded mat, antique paper, gold foil) · anime.js card dealing",
+    "nav": "N6 Masthead",
+    "footer": "Ft4 Dense colophon",
+    "brief": "Yu-Gi-Oh! effect search \u00b7 nostalgic paper duel mat redesign, card tiles with art"
+  },
+  {
+    "date": "2026-10-10",
+    "macrostructure": "Index-First",
+    "theme": "Cobalt",
+    "enrichment": "none",
+    "nav": "N9 Edge-aligned minimal",
+    "footer": "Ft2 Inline single line",
+    "brief": "Yu-Gi-Oh! effect search \u00b7 search box, filters, text-only results list"
+  }
+]
