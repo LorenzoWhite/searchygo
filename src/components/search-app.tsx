@@ -50,7 +50,20 @@ const VIEW_KEY = "searchygo:view";
 const exclusionsOf = (filters: Filters) => (filters.not ? filters.not.split("|") : []);
 const MONSTER_ONLY: Partial<Filters> = { attribute: "", type: "", levelMin: "", levelMax: "" };
 const ROLE_NAMES = Object.keys(ROLES).sort();
-const EXAMPLES = ["revive a WATER monster", "hand traps that negate", "triggers when banished", "Swordsoul support", "synergy with Tearlaments"];
+/** Searches shown in turn inside the empty search box, as examples of what it understands. */
+/** Short enough that each fits whole in the box on a narrow phone. */
+const HINTS = [
+  "revive a WATER monster",
+  "hand traps that negate",
+  "synergy with Branded",
+  "triggers when banished",
+  "Swordsoul support",
+  "search a Level 4 Warrior",
+  "Blue-Eyes White Dragon",
+  "negate an activation",
+  "destroy Spells and Traps",
+  "draw 2 cards",
+];
 const KINDS: { value: Filters["kind"]; label: string }[] = [
   { value: "", label: "All" },
   { value: "monster", label: "Monsters" },
@@ -167,6 +180,7 @@ export function SearchApp() {
   };
   /** On a phone the filters are folded away until asked for; a wider screen always shows them. */
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [hint, setHint] = useState(0);
   /** Whether the box for adding an exclusion is showing, and what has been typed in it. */
   const [excluding, setExcluding] = useState(false);
   const [unwanted, setUnwanted] = useState("");
@@ -357,15 +371,23 @@ export function SearchApp() {
         <main className="main">
           <form className="search zone" role="search" onSubmit={(event) => event.preventDefault()}>
             <div className="field field--query">
-              <label htmlFor="query">Effect, card name or keyword</label>
+              <label htmlFor="query" className="visually-hidden">
+                Search cards by effect, card name or keyword
+              </label>
               <div className="query">
+                {text === "" && (
+                  // The examples take turns in the empty box: each fades in, holds, and fades out, and the
+                  // end of each round of the animation moves to the next one.
+                  <span className="query__placeholder" aria-hidden="true" onAnimationIteration={() => setHint((shown) => (shown + 1) % HINTS.length)}>
+                    {HINTS[hint]}
+                  </span>
+                )}
                 <input
                   id="query"
                   ref={inputRef}
                   type="search"
                   value={text}
                   onChange={(event) => setText(event.target.value)}
-                  placeholder="special summon a WATER monster from the GY"
                   autoComplete="off"
                   spellCheck={false}
                   maxLength={200}
@@ -394,19 +416,6 @@ export function SearchApp() {
                       Read as an effect
                     </button>
                   </>
-                ) : text.trim() === "" ? (
-                  <>
-                    <span className="reading__label">Try</span>
-                    <ul className="reading__examples">
-                      {EXAMPLES.map((example) => (
-                        <li key={example}>
-                          <button type="button" className="button button--quiet" onClick={() => setText(example)}>
-                            {example}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </>
                 ) : null}
               </div>
 
@@ -430,67 +439,72 @@ export function SearchApp() {
                     </ul>
                   </>
                 )}
-                <button
-                  type="button"
-                  className="button button--quiet"
-                  aria-expanded={excluding}
-                  aria-controls="exclude-entry"
-                  onClick={() => {
-                    setExcluding((open) => !open);
-                    // The box is focused once it is on the page, so typing can start straight away.
-                    if (!excluding) requestAnimationFrame(() => excludeRef.current?.focus());
-                  }}
-                >
-                  {excluding ? "Done" : exclusions.length ? "Exclude something else" : "Exclude cards"}
-                </button>
-                <div className="exclude__entry" id="exclude-entry" hidden={!excluding}>
-                  <label htmlFor="unwanted">Exclude cards that match</label>
-                  <div className="exclude__row">
-                    <input
-                      id="unwanted"
-                      ref={excludeRef}
-                      type="text"
-                      value={unwanted}
-                      placeholder="Link monsters, banish from the GY, Swordsoul…"
-                      autoComplete="off"
-                      spellCheck={false}
-                      maxLength={100}
-                      disabled={exclusions.length >= MAX_EXCLUSIONS}
-                      onChange={(event) => setUnwanted(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key !== "Enter") return;
-                        // Enter adds the entry; it must not also submit the search form around it.
-                        event.preventDefault();
-                        exclude(unwanted);
-                        setUnwanted("");
-                      }}
-                    />
-                    <button
-                      type="button"
-                      className="button"
-                      disabled={unwanted.trim() === "" || exclusions.length >= MAX_EXCLUSIONS}
-                      onClick={() => {
-                        exclude(unwanted);
-                        setUnwanted("");
-                        excludeRef.current?.focus();
-                      }}
-                    >
-                      Exclude
-                    </button>
-                  </div>
-                  <p className="exclude__note">
-                    {exclusions.length >= MAX_EXCLUSIONS
-                      ? `That is the most a search can exclude (${MAX_EXCLUSIONS}). Remove one to add another.`
-                      : "Written like a search: whatever it would find is taken out of the results."}
-                  </p>
-                </div>
               </div>
             </div>
 
-            <button type="button" className="button filters__toggle" aria-expanded={filtersOpen} aria-controls="filters" onClick={() => setFiltersOpen((open) => !open)}>
-              {filtersOpen ? "Hide filters" : "Filters"}
-              {filtersOn > 0 && ` · ${filtersOn} on`}
-            </button>
+            {/* What else can be done to the search, in one row: leave cards out, and (on a phone) open the filters. */}
+            <div className="search__tools">
+              <button
+                type="button"
+                className="button button--quiet search__tool"
+                aria-expanded={excluding}
+                aria-controls="exclude-entry"
+                onClick={() => {
+                  setExcluding((open) => !open);
+                  // The box is focused once it is on the page, so typing can start straight away.
+                  if (!excluding) requestAnimationFrame(() => excludeRef.current?.focus());
+                }}
+              >
+                {excluding ? "Done" : exclusions.length ? "Exclude something else" : "Exclude cards"}
+              </button>
+              <button type="button" className="button filters__toggle" aria-expanded={filtersOpen} aria-controls="filters" onClick={() => setFiltersOpen((open) => !open)}>
+                {filtersOpen ? "Hide filters" : "Filters"}
+                {filtersOn > 0 && ` · ${filtersOn} on`}
+              </button>
+            </div>
+
+              <div className="exclude__entry" id="exclude-entry" hidden={!excluding} role="group" aria-label="Exclude cards">
+                <label htmlFor="unwanted">Exclude cards that match</label>
+                <div className="exclude__row">
+                  <input
+                    id="unwanted"
+                    ref={excludeRef}
+                    type="text"
+                    value={unwanted}
+                    placeholder="Link monsters, banish from the GY, Swordsoul…"
+                    autoComplete="off"
+                    spellCheck={false}
+                    maxLength={100}
+                    disabled={exclusions.length >= MAX_EXCLUSIONS}
+                    onChange={(event) => setUnwanted(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key !== "Enter") return;
+                      // Enter adds the entry; it must not also submit the search form around it.
+                      event.preventDefault();
+                      exclude(unwanted);
+                      setUnwanted("");
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="button"
+                    disabled={unwanted.trim() === "" || exclusions.length >= MAX_EXCLUSIONS}
+                    onClick={() => {
+                      exclude(unwanted);
+                      setUnwanted("");
+                      excludeRef.current?.focus();
+                    }}
+                  >
+                    Exclude
+                  </button>
+                </div>
+                <p className="exclude__note">
+                  {exclusions.length >= MAX_EXCLUSIONS
+                    ? `That is the most a search can exclude (${MAX_EXCLUSIONS}). Remove one to add another.`
+                    : "Written like a search: whatever it would find is taken out of the results."}
+                </p>
+              </div>
+
 
             <div className="filters" id="filters" data-open={filtersOpen}>
               <fieldset className="field">

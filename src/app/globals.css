@@ -211,7 +211,7 @@ a {
 .zone {
   border: var(--rule-width) solid var(--color-mat-line);
   border-radius: var(--radius-panel);
-  padding: var(--space-lg);
+  padding: var(--space-md);
   /* A zone is a clear patch of mat: the halftone stops at its outline. */
   background: var(--color-mat) var(--texture-grain);
 }
@@ -233,7 +233,7 @@ a {
 
 .search {
   display: grid;
-  gap: var(--space-lg);
+  gap: var(--space-md);
   max-width: var(--search-width);
   margin-inline: auto;
 }
@@ -286,10 +286,15 @@ select {
   appearance: none;
 }
 
+/* Eases down a little on the narrowest phones, so the example searches fit whole in the box. */
+input[type="search"],
+.query__placeholder {
+  font-size: min(var(--text-md), 5.6vw);
+}
+
 input[type="search"] {
   height: 3.25rem;
   padding-inline: var(--space-md) var(--space-xl);
-  font-size: var(--text-md);
 }
 
 input[type="search"]::placeholder {
@@ -327,7 +332,50 @@ input[type="search"]::-webkit-search-cancel-button {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2xs) var(--space-sm);
-  min-height: var(--control-height);
+}
+
+.reading:empty {
+  display: none;
+}
+
+/* An example search shown in the empty box, fading in and out in turn with the others. */
+.query__placeholder {
+  position: absolute;
+  inset-block: 0;
+  inset-inline: calc(var(--space-md) + var(--rule-width)) var(--space-xl);
+  z-index: 1;
+  display: block;
+  align-content: center;
+  overflow: hidden;
+  color: var(--color-ink-muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  animation: hint-turn 3.6s var(--ease-out) infinite;
+}
+
+@keyframes hint-turn {
+  0% {
+    opacity: 0;
+    transform: translateY(0.3em);
+  }
+  12%,
+  85% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-0.3em);
+  }
+}
+
+.search__tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs) var(--space-md);
 }
 
 .reading__label {
@@ -337,12 +385,6 @@ input[type="search"]::-webkit-search-cancel-button {
 }
 
 .reading__chips,
-.reading__examples {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2xs) var(--space-sm);
-}
-
 .reading__chips li {
   padding: var(--space-3xs) var(--space-xs);
   border: var(--rule-width) solid var(--color-gold-dim);
@@ -2000,6 +2042,14 @@ select:disabled {
     display: none;
   }
 
+  .zone {
+    padding: var(--space-lg);
+  }
+
+  .search {
+    gap: var(--space-lg);
+  }
+
   .filters,
   .filters[data-open="false"] {
     display: grid;
@@ -2052,6 +2102,11 @@ select:disabled {
   *::before,
   *::after {
     transition-duration: 0ms !important;
+  }
+
+  /* The examples stay still; the first one stands as an ordinary placeholder. */
+  .query__placeholder {
+    animation: none;
   }
 
   /* No entrance to draw them, so the rules are simply there. */
