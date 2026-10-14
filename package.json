@@ -14,7 +14,8 @@
     "cards:synergy": "tsx scripts/profile-archetypes.ts",
     "cards:search": "tsx scripts/try-search.ts",
     "cards:review": "tsx scripts/review-tags.ts",
-    "cards:images": "tsx scripts/fetch-images.ts"
+    "cards:images": "tsx scripts/fetch-images.ts",
+    "cards:upload": "tsx scripts/upload-images.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.132.1",

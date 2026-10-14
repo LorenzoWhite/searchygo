@@ -16,6 +16,11 @@ body {
   overflow-x: clip;
 }
 
+/* See the colour-scheme note in layout.tsx: the page keeps its own colours whatever the phone's mode. */
+:root {
+  color-scheme: only light;
+}
+
 body {
   margin: 0;
   background-color: var(--color-mat);
@@ -852,9 +857,27 @@ select:disabled {
   color: var(--color-on-mat-muted);
 }
 
-.results__count {
+/* The count, and beside it the choice between reading tiles and scanning a gallery. */
+.results__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: var(--space-xs) var(--space-md);
   padding-bottom: var(--space-sm);
   border-bottom: var(--rule-width) solid var(--color-mat-line);
+}
+
+.segments--view {
+  height: 2.25rem;
+  font-size: var(--text-sm);
+}
+
+.segments--view .segment {
+  padding-inline: var(--space-sm);
+}
+
+.results__count {
   font-size: var(--text-sm);
   color: var(--color-gold);
 }
@@ -869,6 +892,154 @@ select:disabled {
   /* Tiles in a row stretch to the tallest one, so their frames line up. */
   gap: var(--space-lg);
   margin-top: var(--space-lg);
+}
+
+/* The gallery: only the pictures, as many to a row as fit, like a binder page. */
+.cards--gallery {
+  grid-template-columns: repeat(auto-fill, minmax(6.25rem, 1fr));
+  gap: var(--space-sm);
+}
+
+.gallery__card {
+  min-width: 0;
+}
+
+.gallery__open {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-art);
+  background: var(--color-mat-2);
+  cursor: pointer;
+  transition: transform var(--dur-micro) var(--ease-out);
+}
+
+.gallery__open:active {
+  transform: scale(0.97);
+}
+
+.gallery__art,
+.gallery__blank {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 268 / 391;
+  border-radius: var(--radius-art);
+}
+
+/* A card with no picture is its name on a blank in its frame colour. */
+.gallery__blank {
+  display: grid;
+  place-items: center;
+  padding: var(--space-xs);
+  background: var(--frame-color);
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.gallery__limit {
+  position: absolute;
+  inset-block-start: 4%;
+  inset-inline-end: 6%;
+  width: 1.5rem;
+  height: 1.5rem;
+  background-color: var(--color-parchment);
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+}
+
+.gallery__limit.limit--0 {
+  background: linear-gradient(to bottom right, transparent 44%, var(--color-forbidden) 44% 56%, transparent 56%), var(--color-parchment);
+}
+
+.gallery__copies {
+  position: absolute;
+  inset-block-end: 3%;
+  inset-inline-end: 4%;
+  padding: 0 var(--space-xs);
+  border: var(--rule-width) solid var(--color-gold);
+  border-radius: var(--radius-control);
+  background: var(--color-mat-2);
+  color: var(--color-gold);
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+@media (hover: hover) {
+  .gallery__open:hover {
+    transform: translateY(-3px);
+  }
+}
+
+/* A card opened from the gallery, over the dimmed mat. */
+.carddialog {
+  width: min(42rem, calc(100% - 2 * var(--space-sm)));
+  max-height: calc(100dvh - 2 * var(--space-md));
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.carddialog::backdrop {
+  background: var(--color-scrim);
+}
+
+.carddialog__bar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding-block-end: var(--space-xs);
+  background: transparent;
+}
+
+.carddialog__count {
+  flex: 1;
+  text-align: center;
+  color: var(--color-on-mat);
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-shadow: 0 0 0.3em var(--color-mat);
+}
+
+.carddialog__button {
+  width: var(--control-height);
+  height: var(--control-height);
+  border: var(--rule-width) solid var(--color-gold-dim);
+  border-radius: var(--radius-control);
+  background: var(--color-mat-2);
+  color: var(--color-gold);
+  font: inherit;
+  font-size: var(--text-md);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.carddialog__button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.carddialog__close {
+  margin-inline-start: var(--space-xs);
+}
+
+.carddialog__card {
+  grid-template-columns: minmax(0, 1fr);
+  margin: 0;
 }
 
 .cards--stale {

@@ -28,6 +28,10 @@ export const viewport: Viewport = {
   viewportFit: "cover",
   // The colour of the mat, for the browser's own bars on a phone.
   themeColor: "#1d1007",
+  // The page is designed in its own colours. Without this, phones with a forced dark mode
+  // (Chrome on Android, Samsung Internet) recolour the text and leave the parchment light, so the
+  // card text turns pale on pale.
+  colorScheme: "only light",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

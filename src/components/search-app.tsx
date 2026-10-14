@@ -7,7 +7,8 @@ import { ROLES } from "@/lib/vocabulary";
 import { centreOf, dealMat, kickDeck, openMasthead, sendToDeck, snapshotMat, stamp, watchFoil, watchPockets, type MatSnapshot } from "@/lib/motion";
 import { useDeck } from "@/lib/use-deck";
 import type { SearchResponse } from "@/lib/search-response";
-import { CardRow } from "./card-row";
+import { CardRow, type DeckSlot } from "./card-row";
+import { CardDialog, GalleryCard } from "./card-gallery";
 import { DeckPanel } from "./deck-panel";
 import { RollingNumber } from "./rolling-number";
 
@@ -44,6 +45,7 @@ const NO_FILTERS: Filters = {
 /** The filters that belong to the search box rather than to the filter controls, and outlast "Clear filters". */
 const SEARCH_OWNED = ["literal", "not"] as const satisfies readonly (keyof Filters)[];
 const MAX_EXCLUSIONS = 8;
+const VIEW_KEY = "searchygo:view";
 
 const exclusionsOf = (filters: Filters) => (filters.not ? filters.not.split("|") : []);
 const MONSTER_ONLY: Partial<Filters> = { attribute: "", type: "", levelMin: "", levelMax: "" };
@@ -139,6 +141,30 @@ export function SearchApp() {
   const [attempt, setAttempt] = useState(0);
   /** Which way the Genesys slider reads: "this many or more" rather than "or less". */
   const [genesysAtLeast, setGenesysAtLeast] = useState(false);
+  /**
+   * How results are laid out: full tiles to read, or a gallery of pictures to scan, where tapping one
+   * opens it. Phones start on the gallery, wider screens on the list; a choice is remembered.
+   */
+  const [view, setView] = useState<"list" | "gallery">("list");
+  const [opened, setOpened] = useState<number | null>(null);
+  useEffect(() => {
+    let saved: string | null = null;
+    try {
+      saved = localStorage.getItem(VIEW_KEY);
+    } catch {
+      // Without storage the choice simply lasts for this visit.
+    }
+    setView(saved === "list" || saved === "gallery" ? saved : window.matchMedia("(max-width: 40rem)").matches ? "gallery" : "list");
+  }, []);
+  const chooseView = (next: "list" | "gallery") => {
+    beforeRef.current = snapshotMat(null);
+    setView(next);
+    try {
+      localStorage.setItem(VIEW_KEY, next);
+    } catch {
+      // as above
+    }
+  };
   /** On a phone the filters are folded away until asked for; a wider screen always shows them. */
   const [filtersOpen, setFiltersOpen] = useState(false);
   /** Whether the box for adding an exclusion is showing, and what has been typed in it. */
@@ -236,7 +262,7 @@ export function SearchApp() {
     const deck = dealFromRef.current ?? (deckRef.current ? centreOf(deckRef.current) : { x: 0, y: 0 });
     dealMat(list, before, deck, graveyardRef.current);
     kickDeck(deckRef.current);
-  }, [data]);
+  }, [data, view]);
 
   const chips = data?.reading?.chips.join("|") ?? "";
   useLayoutEffect(() => {
@@ -290,6 +316,12 @@ export function SearchApp() {
   const toggleRarity = (toggled: MasterDuelRarity) =>
     setFilter({ rarity: MD_RARITIES.filter((rarity) => (rarity === toggled) !== rarities.includes(rarity)).join(",") });
 
+  const slotFor = (card: Card): DeckSlot => ({
+    copies: copiesOf(deck.deck, card.id),
+    blocked: whyNot(deck.deck, card, homeSection(card)),
+    onAdd: addToDeck,
+    onRemove: (removed) => deck.remove(removed.id),
+  });
   const addToDeck = (card: Card, art: HTMLElement | null) => {
     if (deck.add(card)) return;
     const landing = deckOpen ? deckLandingRef.current : deckButtonRef.current;
@@ -650,6 +682,7 @@ export function SearchApp() {
                 </div>
               )}
 
+              <div className="results__bar">
               <p className="results__count">
                   <span className="deck" ref={deckRef} aria-hidden="true" />
                   {data.total === 0 ? (
@@ -665,6 +698,17 @@ export function SearchApp() {
                     <span className="results__note"> · no card fits that reading, so these match the words instead</span>
                   )}
                 </p>
+                {data.total > 0 && (
+                  <div className="segments segments--view" role="group" aria-label="Show results as">
+                    <button type="button" className="segment" aria-pressed={view === "gallery"} onClick={() => chooseView("gallery")}>
+                      Gallery
+                    </button>
+                    <button type="button" className="segment" aria-pressed={view === "list"} onClick={() => chooseView("list")}>
+                      List
+                    </button>
+                  </div>
+                )}
+              </div>
 
                 {data.total === 0 ? (
                   <div className="notice">
@@ -679,19 +723,14 @@ export function SearchApp() {
                     )}
                   </div>
                 ) : (
-                  <ol className={`cards${status === "loading" ? " cards--stale" : ""}`} ref={listRef}>
-                    {data.results.map((result) => (
-                      <CardRow
-                        key={result.card.id}
-                        result={result}
-                          slot={{
-                          copies: copiesOf(deck.deck, result.card.id),
-                          blocked: whyNot(deck.deck, result.card, homeSection(result.card)),
-                          onAdd: addToDeck,
-                          onRemove: (card) => deck.remove(card.id),
-                        }}
-                      />
-                    ))}
+                  <ol className={`cards${view === "gallery" ? " cards--gallery" : ""}${status === "loading" ? " cards--stale" : ""}`} ref={listRef}>
+                    {data.results.map((result, index) =>
+                      view === "gallery" ? (
+                        <GalleryCard key={result.card.id} result={result} copies={copiesOf(deck.deck, result.card.id)} onOpen={() => setOpened(index)} />
+                      ) : (
+                        <CardRow key={result.card.id} result={result} slot={slotFor(result.card)} />
+                      ),
+                    )}
                   </ol>
                 )}
 
@@ -736,6 +775,7 @@ export function SearchApp() {
       </button>
       {/* On a screen too narrow to hold both, the panel lies over the search and this dims what is behind it. */}
       <div className="scrim" aria-hidden="true" onClick={closeDeck} />
+      <CardDialog results={data?.results ?? []} index={opened} slotFor={slotFor} onMove={setOpened} onClose={() => setOpened(null)} />
       <DeckPanel controls={deck} open={deckOpen} onClose={closeDeck} landingRef={deckLandingRef} />
     </div>
   );
