@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type RefObject } from "react";
-import { GAMES, MD_RARITIES, MD_RARITY_NAMES } from "@/lib/card";
+import { GAMES, MD_RARITIES, MD_RARITY_NAMES, type Card } from "@/lib/card";
 import {
   GENESYS_CAP,
   SECTIONS,
@@ -41,9 +41,11 @@ interface DeckPanelProps {
   onClose: () => void;
   /** Where a card sent from the search lands while the panel is open. */
   landingRef: RefObject<HTMLSpanElement | null>;
+  /** Opens a card in full, with the rest of its section to step through. */
+  onOpenCard: (cards: Card[], index: number) => void;
 }
 
-export function DeckPanel({ controls, open, onClose, landingRef }: DeckPanelProps) {
+export function DeckPanel({ controls, open, onClose, landingRef, onOpenCard }: DeckPanelProps) {
   const { deck, cards, add, remove, move, rename, clear, importDeck, undo } = controls;
   const panelRef = useRef<HTMLElement>(null);
   const [importing, setImporting] = useState(false);
@@ -197,16 +199,22 @@ export function DeckPanel({ controls, open, onClose, landingRef }: DeckPanelProp
             )}
             {rows.length > 0 ? (
               <ol className="deckbox__list">
-                {rows.map(({ card, copies }) => {
+                {rows.map(({ card, copies }, at) => {
                   const other: Section = section === "side" ? homeSection(card) : "side";
                   const full = deck[other].length >= SECTION_LIMITS[other].max;
                   const blocked = whyNot(deck, card, section);
                   return (
                     <li className={`deckrow frame--${frameOf(card)}`} key={card.id}>
-                      <span className="deckrow__art" style={{ backgroundImage: `url("${cardImageUrl(card.id)}")` }} aria-hidden="true" />
-                      <span className="deckrow__name" title={card.name}>
-                        {card.name}
-                      </span>
+                      <button
+                        type="button"
+                        className="deckrow__open"
+                        aria-haspopup="dialog"
+                        title={`Show ${card.name}`}
+                        onClick={() => onOpenCard(rows.map((row) => row.card), at)}
+                      >
+                        <span className="deckrow__art" style={{ backgroundImage: `url("${cardImageUrl(card.id)}")` }} aria-hidden="true" />
+                        <span className="deckrow__name">{card.name}</span>
+                      </button>
                       <span className="deckrow__copies">
                         <span aria-hidden="true">×</span>
                         {copies}

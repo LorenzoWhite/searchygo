@@ -66,7 +66,10 @@ function matchObject(what: CardFilter, wanted: ObjectQuery): number | null {
 
 function matchEvent(event: GameEvent, wanted: EventQuery): number | null {
   if (!wanted.verbs.includes(event.verb)) return null;
-  if (wanted.from.length && !(ZONELESS.has(event.verb) && !event.from.length) && !wanted.from.some((zone) => event.from.includes(zone))) return null;
+  // No zone given means none was stated: a zoneless verb, or the card's own event ("If this card is
+  // Tributed"), which happens wherever the card is.
+  const anywhere = !event.from.length && (ZONELESS.has(event.verb) || (wanted.self && event.what.this_card));
+  if (wanted.from.length && !anywhere && !wanted.from.some((zone) => event.from.includes(zone))) return null;
   if (wanted.player && event.player !== wanted.player && event.player !== "either") return null;
 
   if (wanted.self) return event.what.this_card ? 1 : null;

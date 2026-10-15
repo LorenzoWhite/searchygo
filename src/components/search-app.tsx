@@ -160,6 +160,8 @@ export function SearchApp() {
    */
   const [view, setView] = useState<"list" | "gallery">("list");
   const [opened, setOpened] = useState<number | null>(null);
+  /** A card opened from the deck, with the rest of its section to step through. */
+  const [deckOpened, setDeckOpened] = useState<{ ids: number[]; index: number } | null>(null);
   useEffect(() => {
     let saved: string | null = null;
     try {
@@ -330,6 +332,12 @@ export function SearchApp() {
   const toggleRarity = (toggled: MasterDuelRarity) =>
     setFilter({ rarity: MD_RARITIES.filter((rarity) => (rarity === toggled) !== rarities.includes(rarity)).join(",") });
 
+  // Built from what the deck knows, so a card taken out of the deck while open stays readable.
+  const deckResults = (deckOpened?.ids ?? []).flatMap((id) => {
+    const card = deck.cards.get(id);
+    const notes = deck.notes.get(id);
+    return card ? [{ card, summary: notes?.summary, roles: notes?.roles ?? [] }] : [];
+  });
   const slotFor = (card: Card): DeckSlot => ({
     copies: copiesOf(deck.deck, card.id),
     blocked: whyNot(deck.deck, card, homeSection(card)),
@@ -790,7 +798,14 @@ export function SearchApp() {
       {/* On a screen too narrow to hold both, the panel lies over the search and this dims what is behind it. */}
       <div className="scrim" aria-hidden="true" onClick={closeDeck} />
       <CardDialog results={data?.results ?? []} index={opened} slotFor={slotFor} onMove={setOpened} onClose={() => setOpened(null)} />
-      <DeckPanel controls={deck} open={deckOpen} onClose={closeDeck} landingRef={deckLandingRef} />
+      <CardDialog
+        results={deckResults}
+        index={deckOpened && deckOpened.index < deckResults.length ? deckOpened.index : null}
+        slotFor={slotFor}
+        onMove={(index) => setDeckOpened((shown) => shown && { ...shown, index })}
+        onClose={() => setDeckOpened(null)}
+      />
+      <DeckPanel controls={deck} open={deckOpen} onClose={closeDeck} landingRef={deckLandingRef} onOpenCard={(cards, index) => setDeckOpened({ ids: cards.map((card) => card.id), index })} />
     </div>
   );
 }

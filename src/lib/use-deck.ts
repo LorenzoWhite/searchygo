@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Card } from "./card";
+import type { CardNotes } from "./search";
 import { EMPTY_DECK, SECTIONS, addCopy, copiesIn, deckSize, homeSection, moveCopy, parseDeck, removeCopy, whyNot, type Deck, type DeckList, type Section } from "./deck";
 
 /** The deck is kept in the browser, so it is still there on the next visit. */
@@ -10,13 +11,17 @@ const STORAGE_KEY = "effect-search:deck";
 interface Lookup {
   /** Keyed by the passcode that was asked for, which may be an alternate artwork's. */
   cards: Record<string, Card>;
+  /** Keyed by the card's own passcode. */
+  notes: Record<string, CardNotes>;
   unknown: number[];
 }
 
-async function lookUp(list: DeckList): Promise<Lookup> {
+const idsIn = (list: DeckList) => [...new Set(SECTIONS.flatMap((section) => list[section]))];
+
+async function lookUp(ids: number[]): Promise<Lookup> {
   // Sorted, so the same cards are always asked for with the same address and a cached answer can be reused.
-  const ids = [...new Set(SECTIONS.flatMap((section) => list[section]))].sort((a, b) => a - b);
-  if (!ids.length) return { cards: {}, unknown: [] };
+  ids = [...ids].sort((a, b) => a - b);
+  if (!ids.length) return { cards: {}, notes: {}, unknown: [] };
   const response = await fetch(`/api/cards?ids=${ids.join(",")}`);
   if (!response.ok) throw new Error(`Card lookup responded ${response.status}`);
   return (await response.json()) as Lookup;
@@ -46,13 +51,20 @@ export function useDeck() {
   const [deck, setDeck] = useState<Deck>(EMPTY_DECK);
   /** Every card the deck has needed so far, by passcode. */
   const [cards, setCards] = useState<ReadonlyMap<number, Card>>(() => new Map());
+  /** The summary and roles of each card in the deck, for opening it from there. */
+  const [notes, setNotes] = useState<ReadonlyMap<number, CardNotes>>(() => new Map());
+  /** Cards whose notes have been asked for, so each is asked for once. */
+  const asked = useRef(new Set<number>());
   /** False until the saved deck has been read, so an empty deck is never saved over it. */
   const [ready, setReady] = useState(false);
   /** The deck as it was before an import or a clear, kept until the next edit so it can be put back. */
   const [previous, setPrevious] = useState<Deck | null>(null);
 
-  const learn = useCallback((found: Card[]) => {
+  const learn = useCallback((found: Card[], foundNotes: Lookup["notes"] = {}) => {
     setCards((known) => new Map([...known, ...found.map((card) => [card.id, card] as const)]));
+    const noted = Object.entries(foundNotes).map(([id, note]) => [Number(id), note] as const);
+    for (const [id] of noted) asked.current.add(id);
+    if (noted.length) setNotes((known) => new Map([...known, ...noted]));
   }, []);
 
   useEffect(() => {
@@ -60,14 +72,31 @@ export function useDeck() {
     setReady(true);
     if (!saved || !deckSize(saved)) return;
     setDeck(saved);
-    lookUp(saved)
-      .then(({ cards: found }) => {
-        learn(Object.values(found));
+    for (const id of idsIn(saved)) asked.current.add(id);
+    lookUp(idsIn(saved))
+      .then(({ cards: found, notes: foundNotes }) => {
+        learn(Object.values(found), foundNotes);
         // A card that has since left the database is dropped rather than left as a blank row.
         setDeck((current) => (current === saved ? { ...saved, ...settle(saved, found) } : current));
       })
       .catch(() => {});
   }, [learn]);
+
+  // Cards added from the search arrive without their notes; fetch them once the deck settles.
+  useEffect(() => {
+    if (!ready) return;
+    const missing = idsIn(deck).filter((id) => !asked.current.has(id));
+    if (!missing.length) return;
+    const timer = setTimeout(() => {
+      for (const id of missing) asked.current.add(id);
+      lookUp(missing)
+        .then(({ cards: found, notes: foundNotes }) => learn(Object.values(found), foundNotes))
+        .catch(() => {
+          for (const id of missing) asked.current.delete(id);
+        });
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [deck, ready, learn]);
 
   useEffect(() => {
     if (!ready) return;
@@ -122,13 +151,13 @@ export function useDeck() {
       if (!deckSize(list)) return { ok: false, reason: "That deck has no cards in it." };
       let found: Lookup;
       try {
-        found = await lookUp(list);
+        found = await lookUp(idsIn(list));
       } catch {
         return { ok: false, reason: "The cards could not be looked up. Check the connection and try again." };
       }
       const settled = settle(list, found.cards);
       if (!deckSize(settled)) return { ok: false, reason: "None of the cards in that deck were recognised." };
-      learn(Object.values(found.cards));
+      learn(Object.values(found.cards), found.notes);
       setPrevious(deck);
       setDeck({ name, ...settled });
       return { ok: true, cards: deckSize(settled), unknown: deckSize(list) - deckSize(settled) };
@@ -142,7 +171,7 @@ export function useDeck() {
     setPrevious(null);
   }, [previous]);
 
-  return { deck, cards, ready, add, remove, move, rename, clear, importDeck, undo: previous ? undo : null };
+  return { deck, cards, notes, ready, add, remove, move, rename, clear, importDeck, undo: previous ? undo : null };
 }
 
 export type DeckControls = ReturnType<typeof useDeck>;

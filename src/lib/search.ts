@@ -114,10 +114,17 @@ const MIN_ARCHETYPE_CARDS = 3;
 const BM25_K1 = 1.2;
 const BM25_B = 0.75;
 
+/** A card's summary and roles, as shown on its tile. */
+export interface CardNotes {
+  summary?: string;
+  roles: CardTags["roles"];
+}
+
 export class SearchIndex {
   private entries: Entry[] = [];
   /** Every passcode a card answers to, its alternate artworks included. */
   private byId = new Map<number, Card>();
+  private tagsByCard = new Map<number, CardTags>();
   private postings = new Map<string, number[]>();
   private averageLength = 0;
   private findArchetypes: ReturnType<typeof buildArchetypeMatcher>;
@@ -133,6 +140,7 @@ export class SearchIndex {
     for (const card of cards) {
       for (const id of [card.id, ...(card.aliases ?? [])]) this.byId.set(id, card);
       const tags = tagsById.get(card.id);
+      if (tags) this.tagsByCard.set(card.id, tags);
       const terms = new Map<string, number>();
       const add = (text: string, weight: number) => {
         for (const term of tokenize(text)) terms.set(term, (terms.get(term) ?? 0) + weight);
@@ -169,6 +177,12 @@ export class SearchIndex {
   /** Looks a card up by passcode; an alternate artwork's passcode finds the card it belongs to. */
   card(id: number): Card | undefined {
     return this.byId.get(id);
+  }
+
+  /** What the tags say about a card, shown when it is opened: its summary and its roles. */
+  notes(id: number): CardNotes {
+    const tags = this.tagsByCard.get(id);
+    return { summary: tags?.summary, roles: tags?.roles ?? [] };
   }
 
   search(query: SearchQuery): SearchResult {

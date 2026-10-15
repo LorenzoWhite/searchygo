@@ -27,10 +27,12 @@ against card text instead.
 | `pnpm cards:synergy --dry-run` | Show what the synergy job would send and a rough cost |
 | `pnpm cards:synergy --provider deepseek --only "Clown Crew"` | Profile the named archetypes and print what each profile finds |
 | `pnpm cards:synergy --provider deepseek` | Profile every archetype not yet profiled |
+| `pnpm cards:synergy --provider opencode --model glm-5.3 --budget 2` | The same on OpenCode Go (the current profiles), within a 5-hour window's allowance |
 | `pnpm cards:search "draw 2 cards"` | Run a search from the terminal |
 | `pnpm cards:images` | Download the card images still missing from `public/cards/` |
 
-Tagging needs `ANTHROPIC_API_KEY` or `DEEPSEEK_API_KEY` in `.env` (see `.env.example`). Pass
+Tagging needs `ANTHROPIC_API_KEY` or `DEEPSEEK_API_KEY` in `.env` (see `.env.example`); synergy
+profiling can also use `OPENCODE_API_KEY`. Pass
 `--model` to choose the model within a provider. The most-viewed cards are tagged first and
 already-tagged cards are skipped, so a run can stop early and resume, and after a new set it is
 just: fetch, prepare, tag.

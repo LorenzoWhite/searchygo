@@ -48,6 +48,11 @@ if (!(args.provider in PROVIDERS)) {
   console.error(`Unknown --provider "${args.provider}". Use one of: ${Object.keys(PROVIDERS).join(", ")}.`);
   process.exit(1);
 }
+if (args.provider === "opencode") {
+  // Go is meant for coding-agent traffic, and tagging every card is thousands of requests in a row.
+  console.error("Tagging does not run on OpenCode Go. Use --provider deepseek or anthropic.");
+  process.exit(1);
+}
 const provider = args.provider as Provider;
 const model = args.model ?? PROVIDERS[provider].defaultModel;
 /** --out sends a run to its own file, so several models can tag the same sample for comparison. */

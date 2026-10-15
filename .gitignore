@@ -31,3 +31,5 @@ public/cards/
 
 # original texture downloads from Texturelabs; their licence does not allow redistributing them
 design-src/texturelabs/
+data/synergy/trials/
+data/synergy/*.replies.jsonl

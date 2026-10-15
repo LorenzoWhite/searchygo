@@ -19,6 +19,7 @@
  * The most-viewed archetypes come first and profiled ones are skipped, so the job can be stopped,
  * resumed, and re-run after new sets.
  */
+import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
@@ -27,7 +28,22 @@ import OpenAI from "openai";
 import type { Card } from "../src/lib/card.ts";
 import { findPartners, readProfile, type ArchetypeProfile, type Candidate, type ProfiledArchetype } from "../src/lib/synergy.ts";
 import type { TaggedCard } from "../src/lib/tags.ts";
-import { DEEPSEEK_BASE_URL, PRICES, PROVIDERS, appendJsonl, isDeepSeekPeak, isTransient, priceOf, readJsonl, type Provider, type Reply, type Usage } from "./models.ts";
+import {
+  DEEPSEEK_BASE_URL,
+  OPENCODE_BASE_URL,
+  OPENCODE_USER_AGENT,
+  PRICES,
+  PROVIDERS,
+  appendJsonl,
+  isDeepSeekPeak,
+  isTransient,
+  priceKey,
+  priceOf,
+  readJsonl,
+  type Provider,
+  type Reply,
+  type Usage,
+} from "./models.ts";
 import { CARDS_PATH, ENV_PATH, SYNERGY_FAILURES_PATH, SYNERGY_PATH, SYNERGY_REPLIES_PATH, TAGS_PATH } from "./paths.ts";
 import { parseJsonObject } from "./reply-parsing.ts";
 import { MAX_CARDS_SHOWN, SYNERGY_EXAMPLES, buildSynergyPrompt, profileFormat, renderArchetype } from "./synergy-prompt.ts";
@@ -55,7 +71,10 @@ if (!(args.provider in PROVIDERS)) {
 }
 const provider = args.provider as Provider;
 const model = args.model ?? PROVIDERS[provider].defaultModel;
+const priced = priceKey(provider, model);
 const profilesPath = args.out ?? SYNERGY_PATH;
+/** Replies from a trial run written elsewhere stay beside it, so --reread on the real profiles never picks them up. */
+const repliesPath = args.out ? args.out.replace(/(\.jsonl)?$/, ".replies.jsonl") : SYNERGY_REPLIES_PATH;
 
 /** An archetype with fewer cards than this is a pair of cards, not a deck with a plan. */
 const MIN_CARDS = 3;
@@ -69,8 +88,8 @@ const ATTEMPTS = 3;
 const SHOWN_IN_FULL = 25;
 
 const budget = args.budget === undefined ? undefined : Number(args.budget);
-if (budget !== undefined && (!(budget > 0) || !PRICES[model])) {
-  console.error(PRICES[model] ? "--budget must be a dollar amount above 0." : `--budget needs a known price, and "${model}" has none in PRICES.`);
+if (budget !== undefined && (!(budget > 0) || !PRICES[priced])) {
+  console.error(PRICES[priced] ? "--budget must be a dollar amount above 0." : `--budget needs a known price, and "${priced}" has none in PRICES.`);
   process.exit(1);
 }
 
@@ -159,7 +178,8 @@ async function askClaude(client: Anthropic, message: string): Promise<Reply> {
   };
 }
 
-async function askDeepSeek(client: OpenAI, message: string): Promise<Reply> {
+/** DeepSeek's own API, or a model reached through OpenCode Go; both speak OpenAI's chat-completions protocol. */
+async function askChat(client: OpenAI, message: string): Promise<Reply> {
   const completion = await client.chat.completions.create({
     model,
     max_tokens: MAX_TOKENS,
@@ -172,15 +192,17 @@ async function askDeepSeek(client: OpenAI, message: string): Promise<Reply> {
   });
   const choice = completion.choices[0];
   const stop = choice?.finish_reason;
-  // DeepSeek reports cached and uncached prompt tokens separately, outside the OpenAI SDK's types.
+  // DeepSeek reports cached and uncached prompt tokens separately, outside the OpenAI SDK's types;
+  // other models report the cached part inside prompt_tokens_details.
   const used = completion.usage as (OpenAI.CompletionUsage & { prompt_cache_hit_tokens?: number; prompt_cache_miss_tokens?: number }) | undefined;
+  const cached = used?.prompt_cache_hit_tokens ?? used?.prompt_tokens_details?.cached_tokens ?? 0;
   return {
     text: choice?.message.content ?? undefined,
     problem: stop === "stop" ? null : stop === "length" ? TRUNCATED : `stopped with ${stop}`,
     usage: {
-      input: used?.prompt_cache_miss_tokens ?? used?.prompt_tokens ?? 0,
+      input: used?.prompt_cache_miss_tokens ?? (used?.prompt_tokens ?? 0) - cached,
       cacheWrite: 0,
-      cacheRead: used?.prompt_cache_hit_tokens ?? 0,
+      cacheRead: cached,
       output: used?.completion_tokens ?? 0,
     },
   };
@@ -215,7 +237,7 @@ function fail(name: string, reason: string) {
 
 function handleReply(reply: Reply, archetype: Archetype) {
   for (const key of Object.keys(usage) as (keyof Usage)[]) usage[key] += reply.usage[key];
-  spent += priceOf(model, reply.usage);
+  spent += priceOf(priced, reply.usage);
 
   if (reply.problem) return fail(archetype.name, reply.problem);
   if (!reply.text) return fail(archetype.name, "response contained no text");
@@ -229,7 +251,7 @@ function handleReply(reply: Reply, archetype: Archetype) {
   const read = readProfile(parsed, archetype.name);
   if (!read) return fail(archetype.name, "response had no plan or no usable hook");
   for (const reason of read.dropped) console.warn(`  ${archetype.name}: left out ${reason}`);
-  appendJsonl(SYNERGY_REPLIES_PATH, { archetype: archetype.name, model, effort: args.effort, reply: parsed } satisfies StoredReply);
+  appendJsonl(repliesPath, { archetype: archetype.name, model, effort: args.effort, reply: parsed } satisfies StoredReply);
 
   appendJsonl(profilesPath, { archetype: archetype.name, cards: archetype.cards.length, model, effort: args.effort, profile: read.profile } satisfies ProfiledArchetype);
   written.set(archetype.name, read.profile);
@@ -245,7 +267,7 @@ interface StoredReply {
 
 /** Rebuilds stored profiles from the replies they came from. The latest reply for an archetype wins. */
 function reread() {
-  const latest = new Map(readJsonl<StoredReply>(SYNERGY_REPLIES_PATH).map((row) => [row.archetype, row]));
+  const latest = new Map(readJsonl<StoredReply>(repliesPath).map((row) => [row.archetype, row]));
   let rebuilt = 0;
   const rows = readJsonl<ProfiledArchetype>(profilesPath).map((row) => {
     const kept = latest.get(row.archetype);
@@ -325,8 +347,9 @@ function printDryRun() {
   console.log(`Instructions: ~${Math.round(systemTokens)} tokens, repeated on every request. Archetype cards: ~${Math.round(archetypeTokens)} tokens in all.`);
   console.log(`Archetypes with more than ${MAX_CARDS_SHOWN} cards are shown by their ${MAX_CARDS_SHOWN} best-known.`);
   console.log("\nRough cost of this run by model, before cache savings and reasoning tokens:");
-  for (const [name, price] of Object.entries(PRICES)) {
+  for (const [key, price] of Object.entries(PRICES)) {
     if (price.provider !== provider) continue;
+    const name = key.replace(/@.*/, "");
     const cost = ((systemTokens * todo.length + archetypeTokens) * price.input + outputTokens * price.output) / 1e6;
     console.log(`  ${name.padEnd(18)} ~$${cost.toFixed(2).padStart(6)}${price.provider === "deepseek" ? "  (off-peak price; peak hours cost double)" : ""}`);
   }
@@ -347,7 +370,7 @@ function finish() {
   console.log(`\nProfiled ${written.size} archetypes with ${model}, ${failures.size} failed${failed}.`);
   console.log(
     `Tokens: ${usage.input} input, ${usage.cacheWrite} cache write, ${usage.cacheRead} cache read, ${usage.output} output` +
-      (PRICES[model] ? ` — about $${spent.toFixed(2)}.` : "."),
+      (PRICES[priced] ? ` — about $${spent.toFixed(2)}.` : "."),
   );
   if (written.size) console.log(`Average output per archetype: ${Math.round(usage.output / completed)} tokens.`);
 
@@ -385,13 +408,21 @@ if (args.redo) {
 }
 fs.mkdirSync(path.dirname(profilesPath), { recursive: true });
 
-if (provider === "deepseek" && isDeepSeekPeak(new Date())) {
+if (model.startsWith("deepseek") && isDeepSeekPeak(new Date())) {
   console.log("DeepSeek is in peak hours (weekdays 01:00-04:00 and 06:00-10:00 UTC), so this run costs double.");
 }
 console.log(`Profiling ${todo.length} archetypes with ${model}...`);
 if (provider === "deepseek") {
   const client = new OpenAI({ baseURL: DEEPSEEK_BASE_URL, apiKey, maxRetries: 5 });
-  await run((message) => askDeepSeek(client, message));
+  await run((message) => askChat(client, message));
+} else if (provider === "opencode") {
+  const client = new OpenAI({
+    baseURL: OPENCODE_BASE_URL,
+    apiKey,
+    maxRetries: 5,
+    defaultHeaders: { "User-Agent": OPENCODE_USER_AGENT, "x-opencode-session": randomUUID() },
+  });
+  await run((message) => askChat(client, message));
 } else {
   const client = new Anthropic({ apiKey, maxRetries: 5 });
   await run((message) => askClaude(client, message));
