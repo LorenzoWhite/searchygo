@@ -112,12 +112,24 @@ export interface Card {
   /** What the card costs in the Genesys format (TCG list); absent for cards that cannot be played in it. */
   genesysPoints?: number;
   formats: string[];
+  /** First release, as YYYY-MM-DD. */
   tcgDate?: string;
   ocgDate?: string;
   /** YGOPRODeck page views — a rough popularity signal used to break ranking ties. */
   views: number;
   url: string;
 }
+
+/** The formats a card can be legal in, as YGOPRODeck names them: the official games, then retro and fan formats. */
+export const FORMATS = ["TCG", "OCG", "Master Duel", "Duel Links", "Speed Duel", "GOAT", "OCG GOAT", "Edison", "Common Charity"] as const;
+export type Format = (typeof FORMATS)[number];
+
+/**
+ * When a card first came out, for the release-year filter: in the OCG for an OCG format, otherwise
+ * in the TCG, or in the OCG for a card the TCG never had.
+ */
+export const releaseDate = (card: Pick<Card, "tcgDate" | "ocgDate">, format?: string) =>
+  format?.startsWith("OCG") ? card.ocgDate : (card.tcgDate ?? card.ocgDate);
 
 /** Where a card stands in a game: not printed there, on its Forbidden & Limited list, or free to play. */
 export function standingIn(card: Pick<Card, "formats" | "banTcg" | "banOcg">, game: Game): BanStatus | "Unreleased" | "Unlimited" {

@@ -65,6 +65,13 @@ Card data comes from [YGOPRODeck](https://ygoprodeck.com/api-guide/). Their term
 images are downloaded and self-hosted rather than hotlinked, so `pnpm cards:images` downloads the
 small images into `public/cards/` (about 400 MB, not committed).
 
+Players' names for kinds of card ("recruiters", "floaters", "tutors") are read as the effect they
+describe (`PLAYER_TERMS` in `src/lib/query.ts`), so they work like any other effect search.
+
+Cards can also be filtered by format (TCG, OCG, Master Duel, Duel Links, Speed Duel, GOAT, OCG GOAT,
+Edison, Common Charity, as YGOPRODeck lists them) and by the year they first came out: in the OCG
+for an OCG format, otherwise in the TCG.
+
 The same download carries each card's Master Duel rarity and its Genesys points (the TCG list).
 Both are shown on every card and can be filtered on. When Konami changes the point list, run
 `pnpm cards:fetch` and `pnpm cards:prepare`; nothing needs re-tagging.

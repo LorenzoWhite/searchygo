@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
-import { ATTRIBUTES, MD_RARITIES, MD_RARITY_NAMES, MONSTER_TYPES, type Card, type CardKind, type MasterDuelRarity } from "@/lib/card";
+import { ATTRIBUTES, FORMATS, MD_RARITIES, MD_RARITY_NAMES, MONSTER_TYPES, type Card, type CardKind, type MasterDuelRarity } from "@/lib/card";
 import { copiesOf, deckSize, homeSection, whyNot } from "@/lib/deck";
 import { ROLES } from "@/lib/vocabulary";
 import { centreOf, dealMat, kickDeck, openMasthead, sendToDeck, snapshotMat, stamp, watchFoil, watchPockets, type MatSnapshot } from "@/lib/motion";
@@ -23,6 +23,11 @@ interface Filters {
   rarity: string;
   genesysMin: string;
   genesysMax: string;
+  /** A format the card is legal in (see FORMATS). */
+  format: string;
+  /** First released in or between these years. */
+  from: string;
+  to: string;
   /** "1" matches the words against card text instead of reading them as an effect. */
   literal: string;
   /** What to exclude from the results, as searches of their own, separated by "|". */
@@ -39,6 +44,9 @@ const NO_FILTERS: Filters = {
   rarity: "",
   genesysMin: "",
   genesysMax: "",
+  format: "",
+  from: "",
+  to: "",
   literal: "",
   not: "",
 };
@@ -71,6 +79,9 @@ const KINDS: { value: Filters["kind"]; label: string }[] = [
   { value: "trap", label: "Traps" },
 ];
 const LEVELS = Array.from({ length: 13 }, (_, i) => String(i + 1));
+/** From the first OCG cards (1999) to next year, for cards announced ahead of release. Newest first. */
+const YEARS = Array.from({ length: new Date().getFullYear() + 2 - 1999 }, (_, i) => String(new Date().getFullYear() + 1 - i));
+const year = (value: string | null) => (value && /^\d{4}$/.test(value) ? value : "");
 const DEBOUNCE_MS = 160;
 const SKELETON_ROWS = 6;
 
@@ -132,6 +143,9 @@ function fromParams(params: URLSearchParams): { text: string; filters: Filters }
       rarity: MD_RARITIES.filter((rarity) => params.get("rarity")?.split(",").includes(rarity)).join(","),
       genesysMin: genesysMax ? "" : points(params.get("genesysMin")),
       genesysMax,
+      format: FORMATS.find((format) => format === params.get("format")) ?? "",
+      from: year(params.get("from")),
+      to: year(params.get("to")),
       literal: params.get("literal") === "1" ? "1" : "",
       not: (params.get("not") ?? "")
         .split("|")
@@ -360,7 +374,7 @@ export function SearchApp() {
   const hasFilters = Object.entries(filters).some(([name, value]) => !(SEARCH_OWNED as readonly string[]).includes(name) && value);
   const hasQuery = hasFilters || exclusions.length > 0 || text.trim() !== "";
   // Counted as a person would count them: a Level range or a Genesys bound is one filter, not two.
-  const filtersOn = [filters.kind, filters.role, filters.attribute, filters.type, filters.levelMin || filters.levelMax, filters.rarity, filters.genesysMin || filters.genesysMax].filter(Boolean).length;
+  const filtersOn = [filters.kind, filters.role, filters.attribute, filters.type, filters.levelMin || filters.levelMax, filters.rarity, filters.genesysMin || filters.genesysMax, filters.format, filters.from || filters.to].filter(Boolean).length;
   const remaining = data ? data.total - data.results.length : 0;
   const reading = status === "error" ? undefined : data?.reading;
 
@@ -608,6 +622,37 @@ export function SearchApp() {
                   </div>
                 </fieldset>
               )}
+
+              <div className="field">
+                <label htmlFor="format">Format</label>
+                <select id="format" value={filters.format} onChange={(event) => setFilter({ format: event.target.value })}>
+                  <option value="">Any</option>
+                  {FORMATS.map((format) => (
+                    <option key={format}>{format}</option>
+                  ))}
+                </select>
+              </div>
+
+              <fieldset className="field">
+                <legend title="The year the card first came out: in the OCG for an OCG format, otherwise in the TCG">
+                  Released{filters.format.startsWith("OCG") ? " (OCG)" : ""}
+                </legend>
+                <div className="range">
+                  <select aria-label="Released from" value={filters.from} onChange={(event) => setFilter({ from: event.target.value })}>
+                    <option value="">From</option>
+                    {YEARS.map((option) => (
+                      <option key={option}>{option}</option>
+                    ))}
+                  </select>
+                  <span aria-hidden="true">–</span>
+                  <select aria-label="Released up to" value={filters.to} onChange={(event) => setFilter({ to: event.target.value })}>
+                    <option value="">To</option>
+                    {YEARS.map((option) => (
+                      <option key={option}>{option}</option>
+                    ))}
+                  </select>
+                </div>
+              </fieldset>
 
               <div className="field field--wide" role="group" aria-labelledby="genesys-label">
                 <div className="field__head">

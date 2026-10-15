@@ -5,7 +5,7 @@
  * the words say nothing the tags can answer, or nothing matches, it falls back to BM25 relevance
  * over card names, text and tag summaries.
  */
-import type { Attribute, Card, CardKind, MasterDuelRarity, Subtype } from "./card.ts";
+import { releaseDate, type Attribute, type Card, type CardKind, type MasterDuelRarity, type Subtype } from "./card.ts";
 import { matchCard } from "./effect-match.ts";
 import { buildArchetypeMatcher, interpret, type EffectQuery } from "./query.ts";
 import { findPartners, type ArchetypeProfile } from "./synergy.ts";
@@ -24,6 +24,9 @@ export interface SearchQuery {
   levelMin?: number;
   levelMax?: number;
   format?: string;
+  /** First released in or between these years (see releaseDate). */
+  yearFrom?: number;
+  yearTo?: number;
   mdRarities?: MasterDuelRarity[];
   /** Either bound also limits the search to cards that can be played in Genesys. */
   genesysMin?: number;
@@ -378,7 +381,7 @@ export class SearchIndex {
 
 function buildFilter(query: SearchQuery): (entry: Entry) => boolean {
   const checks: ((entry: Entry) => boolean)[] = [];
-  const { kinds, attributes, monsterTypes, subtypes, roles, levelMin, levelMax, format, mdRarities, genesysMin, genesysMax } = query;
+  const { kinds, attributes, monsterTypes, subtypes, roles, levelMin, levelMax, format, yearFrom, yearTo, mdRarities, genesysMin, genesysMax } = query;
 
   if (kinds?.length) checks.push(({ card }) => kinds.includes(card.kind));
   if (attributes?.length) checks.push(({ card }) => !!card.attribute && attributes.includes(card.attribute));
@@ -393,6 +396,12 @@ function buildFilter(query: SearchQuery): (entry: Entry) => boolean {
     });
   }
   if (format) checks.push(({ card }) => card.formats.includes(format));
+  if (yearFrom != null || yearTo != null) {
+    checks.push(({ card }) => {
+      const year = Number(releaseDate(card, format)?.slice(0, 4));
+      return year > 0 && year >= (yearFrom ?? 0) && year <= (yearTo ?? Infinity);
+    });
+  }
   if (mdRarities?.length) checks.push(({ card }) => !!card.mdRarity && mdRarities.includes(card.mdRarity));
   if (genesysMin != null || genesysMax != null) {
     checks.push(({ card: { genesysPoints: points } }) => points != null && points >= (genesysMin ?? 0) && points <= (genesysMax ?? Infinity));

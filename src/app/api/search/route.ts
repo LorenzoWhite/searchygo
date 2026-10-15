@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { DATA_CACHE_CONTROL, RecentCache } from "@/lib/cache";
-import { ATTRIBUTES, CARD_KINDS, MD_RARITIES, MONSTER_TYPES, SUBTYPES } from "@/lib/card";
+import { ATTRIBUTES, CARD_KINDS, FORMATS, MD_RARITIES, MONSTER_TYPES, SUBTYPES } from "@/lib/card";
 import { getSearchIndex } from "@/lib/data";
 import { ROLES } from "@/lib/tags";
 import type { SearchQuery } from "@/lib/search";
@@ -31,6 +31,11 @@ function integer(params: URLSearchParams, name: string): number | undefined {
   return Number.isNaN(value) ? undefined : value;
 }
 
+/** A range picked backwards ("2010 to 2005") means the years between them. */
+function years(from?: number, to?: number): Pick<SearchQuery, "yearFrom" | "yearTo"> {
+  return from != null && to != null && from > to ? { yearFrom: to, yearTo: from } : { yearFrom: from, yearTo: to };
+}
+
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   const page = Math.max(1, integer(params, "page") ?? 1);
@@ -45,7 +50,8 @@ export async function GET(request: NextRequest) {
     roles: list(params, "role", Object.keys(ROLES) as (keyof typeof ROLES)[]),
     levelMin: integer(params, "levelMin"),
     levelMax: integer(params, "levelMax"),
-    format: params.get("format") ?? undefined,
+    format: list(params, "format", FORMATS)[0],
+    ...years(integer(params, "from"), integer(params, "to")),
     mdRarities: list(params, "rarity", MD_RARITIES),
     genesysMin: integer(params, "genesysMin"),
     genesysMax: integer(params, "genesysMax"),

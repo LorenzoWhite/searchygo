@@ -303,17 +303,28 @@ export function buildArchetypeMatcher(names: Iterable<string>): (text: string) =
 }
 
 /** Returns null when the search contains nothing the rules recognise, i.e. it is a plain text search. */
+/**
+ * Player terms for kinds of card, said in the words the reader understands. "Recruiter" is not a
+ * tag of its own: it is a monster that Special Summons from the Deck when destroyed by battle.
+ */
+const PLAYER_TERMS: [RegExp, string][] = [
+  [/\brecruiters?\b/g, "when destroyed by battle special summon a monster from the deck"],
+  [/\bfloaters?\b/g, "when this card is destroyed special summon a monster"],
+  [/\btutors?\b/g, "searchers"],
+];
+
 export function interpret(
   input: string,
   findArchetypes: ReturnType<typeof buildArchetypeMatcher> = () => [],
 ): Interpretation | null {
-  const text = input
+  let text = input
     .toLowerCase()
     .replace(/[“”"]/g, " ")
     .replace(/\bgrave ?yards?\b|\bgraves?\b/g, "gy")
     .replace(/\s+/g, " ")
     .trim();
   if (!text) return null;
+  for (const [term, meaning] of PLAYER_TERMS) text = text.replace(term, meaning);
 
   const marks: Mark[] = [];
   const free = (start: number, end: number) => marks.every((mark) => end <= mark.start || start >= mark.end);
