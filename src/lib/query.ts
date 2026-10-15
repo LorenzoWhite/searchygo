@@ -42,6 +42,8 @@ export interface EffectQuery {
   supports?: ObjectQuery;
   /** Usable during the opponent's turn. */
   quick: boolean;
+  /** Where the card is when the effect is used: "GY effects", "effects while banished". */
+  worksFrom?: Zone;
   /** Words the rules did not use, matched against card text. */
   text: string;
 }
@@ -189,6 +191,12 @@ const BANISHED_NOUN = /\bbanished(?= (?:cards?|monsters?|spells?|traps?)\b)/;
 const OPPONENT = /\b(?:opponent'?s?|opponents'|opp'?s?|their|enemy'?s?)\b/;
 const YOURS = /\b(?:your own|my own|my|mine|own)\b/;
 const SELF = /\b(?:itself|themselves|this card|its own self)\b/;
+/**
+ * An effect used from somewhere other than the field: "GY effects", "effects in the hand",
+ * "activates from the GY", "while banished". The zone is in the second group.
+ */
+const WORKS_FROM =
+  /\b((?:gy|hand|banished|banishment) effects?|effects? (?:that (?:work|activate|apply) )?(?:in|from|while in) (?:the |your )?(gy|hand)|(?:activates?|usable|works?|used) (?:from|in) (?:the |your )?(gy|hand)|while (?:in (?:the |your )?(gy|hand)|(banished)))\b/;
 const QUICK = /\bquick effects?\b|\bspell speed 2\b|\b(?:during|on|in) (?:the |my |your )?(?:opponent'?s?|either(?: player'?s?)?) turns?\b/;
 const SUPPORT = /\bsupports?\b|\b(?:works?|good|goes|synerg\w+) (?:well )?(?:with|in|for)(?= )/;
 const CUE = /\b(?:when(?:ever)?|if|upon|after|every time|each time|triggers?(?: when| if| on)?|reacts? to|responds? to|in response to|benefits? from|rewards?|punish(?:es)?)\b|\bon(?= (?:summon|being|normal|special|flip|destruction|leaving))/;
@@ -260,7 +268,7 @@ const FILLER = new Set(
 // --- Interpreter ------------------------------------------------------------------------------
 
 type MarkType =
-  | "verb" | "role" | "from" | "to" | "opponent" | "yours" | "self" | "quick" | "support" | "cue" | "boundary"
+  | "verb" | "role" | "where" | "from" | "to" | "opponent" | "yours" | "self" | "quick" | "support" | "cue" | "boundary"
   | "level" | "kind" | "subtype" | "type" | "attribute" | "archetype";
 
 interface Mark {
@@ -339,6 +347,7 @@ export function interpret(
   };
 
   for (const [pattern, role] of ROLE_RULES) scan(pattern, () => ({ type: "role", role }));
+  scan(WORKS_FROM, (match) => ({ type: "where", zone: toZone(match[2] ?? match[3] ?? match[4] ?? match[5] ?? match[1]!.split(" ")[0]!) }));
   scan(QUICK, () => ({ type: "quick" }));
   scan(FROM_ZONE, (match) => ({
     type: "from",
@@ -387,6 +396,9 @@ export function interpret(
         break;
       case "quick":
         query.quick = true;
+        break;
+      case "where":
+        query.worksFrom = mark.zone;
         break;
       case "support":
         supporting = true;
@@ -504,7 +516,7 @@ export function interpret(
   if (does) query.does = strip(does);
   if (reactsTo) query.reactsTo = strip(reactsTo);
 
-  const understood = query.does || query.reactsTo || query.supports || query.roles.length || query.quick || !isEmptyObject(query.card);
+  const understood = query.does || query.reactsTo || query.supports || query.roles.length || query.quick || query.worksFrom || !isEmptyObject(query.card);
   if (!understood) return null;
 
   // Whatever no rule claimed still narrows the search, as ordinary text.
@@ -593,6 +605,7 @@ function describe(query: EffectQuery): string[] {
   if (!isEmptyObject(query.card)) chips.push(`Card is: ${describeObject(query.card)}`);
   for (const role of query.roles) chips.push(`Role: ${role.replaceAll("_", " ")}`);
   if (query.quick) chips.push("Usable on the opponent's turn");
+  if (query.worksFrom) chips.push(`Effect used from: ${ZONE_LABELS[query.worksFrom]}`);
   if (query.does) chips.push(`Does: ${describeEvent(query.does)}`);
   if (query.reactsTo) chips.push(`Reacts to: ${describeEvent(query.reactsTo)}`);
   if (query.supports) chips.push(`Works with: ${describeObject(query.supports)}`);

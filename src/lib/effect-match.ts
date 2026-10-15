@@ -94,6 +94,7 @@ function matchEffects(effects: Effect[], query: EffectQuery): number | null {
 
   for (const effect of effects) {
     if (query.quick && effect.timing !== "quick") continue;
+    if (query.worksFrom && !effect.location.includes(query.worksFrom)) continue;
     // Paying a cost also makes the thing happen, so "send from Deck to GY" includes cards that do it as a cost.
     const does = query.does ? best([...effect.actions, ...effect.costs], query.does) : 0;
     const reacts = query.reactsTo ? best(effect.triggers, query.reactsTo) : 0;
@@ -132,12 +133,12 @@ function matchSupports(card: Card, tags: CardTags, wanted: ObjectQuery): boolean
 export function matchCard(card: Card, tags: CardTags | undefined, query: EffectQuery): number | null {
   if (!matchCardItself(card, query.card)) return null;
 
-  const needsTags = query.does || query.reactsTo || query.supports || query.roles.length > 0 || query.quick;
+  const needsTags = query.does || query.reactsTo || query.supports || query.roles.length > 0 || query.quick || query.worksFrom;
   if (!needsTags) return 0;
   if (!tags) return null;
 
   if (!query.roles.every((role) => tags.roles.includes(role))) return null;
   if (query.supports && !matchSupports(card, tags, query.supports)) return null;
-  if (!query.does && !query.reactsTo && !query.quick) return 0;
+  if (!query.does && !query.reactsTo && !query.quick && !query.worksFrom) return 0;
   return matchEffects(tags.effects, query);
 }

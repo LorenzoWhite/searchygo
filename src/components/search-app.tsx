@@ -68,7 +68,7 @@ const HINTS = [
   "Swordsoul support",
   "search a Level 4 Warrior",
   "Blue-Eyes White Dragon",
-  "negate an activation",
+  "Spells with GY effects",
   "destroy Spells and Traps",
   "draw 2 cards",
 ];
