@@ -59,7 +59,10 @@ function CardArt({ card, frame }: { card: Card; frame: string }) {
   return (
     <span className="tile__pocket">
       {missing ? (
-        <span className={`tile__art tile__art--missing frame--${frame}`} aria-hidden="true" />
+        // A card with no picture yet (a new reveal) is its name on a blank, as in the gallery.
+        <span className={`tile__art tile__art--missing frame--${frame}`} aria-hidden="true">
+          {card.name}
+        </span>
       ) : (
         // The name is the heading right beside it, so the image adds nothing for a screen reader.
         <img

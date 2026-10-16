@@ -59,6 +59,24 @@ and each card's Master Duel rarity and limit marks. For showing a deck to people
 - About 10 cards to a row, as in Master Duel; the image is sized for sharing on Discord and social
   sites.
 
+### 3. Automatic weekly card refresh
+
+New cards (reveals like "Mind Scan", new sets, banlist and Genesys point changes) reach the site by
+themselves, with nothing to run by hand.
+
+- **Where it runs.** A scheduled GitHub Actions workflow, once a week, on GitHub's machines, so no
+  computer has to be on.
+- **Steps.** Fetch the card database → prepare it → tag only the cards that are new (DeepSeek Flash,
+  a cent or two a week) → download and upload images only for cards the R2 bucket does not have yet
+  (not all 14,000) → commit the changed data files → the push deploys through Vercel.
+- **Order matters.** Images go up before the data is committed, so a new card never appears on the
+  site before its picture does.
+- **Setup once.** The DeepSeek key and the four R2 values go into the repository's GitHub secrets
+  (not into the code). A spending cap on the tagging step (`--budget`) and a failed run sending an
+  email instead of deploying half-finished data.
+- **Until then**, by hand: `pnpm cards:fetch`, `pnpm cards:prepare`, `pnpm cards:tag --provider
+  deepseek`, `pnpm cards:images`, `pnpm cards:upload`, then commit and push.
+
 ## Later
 
 - **Plain search switch.** A setting that turns off what AI made: always match the card text's
@@ -81,6 +99,7 @@ and each card's Master Duel rarity and limit marks. For showing a deck to people
 
 ## Done
 
+- Announced-but-unreleased cards kept (anything with a Konami ID, e.g. "Mind Scan")
 - GY / hand / banished effect searches ("Spells with GY effects")
 - Player terms: recruiters, floaters, tutors; format and release-year filters
 - Opening deck cards in the card pop-up
