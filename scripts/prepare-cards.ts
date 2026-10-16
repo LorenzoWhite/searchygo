@@ -46,13 +46,17 @@ interface RawCard {
     question_def?: number;
     md_rarity?: string;
     genesys_points?: number;
+    /** Konami's own database number; only official cards have one. */
+    konami_id?: number;
   }[];
 }
 
 // Speed Duel Skill Cards and Tokens are not cards you search effects for.
 const SKIPPED_FRAMES = new Set(["skill", "token"]);
-// A card with no formats has never been released (anime/manga-only or placeholder entries).
-const isReleased = (card: RawCard) => (card.misc_info?.[0]?.formats?.length ?? 0) > 0;
+// A card with no formats has not been released. It is kept when Konami has it in its database, as a
+// card announced but not yet out ("Mind Scan" before its set), and left out otherwise, as an anime,
+// manga or placeholder entry.
+const isOfficial = (card: RawCard) => (card.misc_info?.[0]?.formats?.length ?? 0) > 0 || card.misc_info?.[0]?.konami_id != null;
 
 const warnings: string[] = [];
 
@@ -107,7 +111,7 @@ function normalize(raw: RawCard): Card {
     if (!card.subtypes.includes("link")) card.def = misc.question_def ? null : (raw.def ?? null);
     if (raw.pend_desc) card.pendulumText = cleanText(raw.pend_desc);
   } else {
-    const property = toSubtype(raw.race);
+    const property = toSubtype(raw.race || raw.humanReadableCardType.split(" ")[0]!);
     if (!subtypeSet.has(property)) throw new Error(`${raw.name}: unknown ${kind} property ${raw.race}`);
     card.subtypes = [property as Subtype];
   }
@@ -139,7 +143,7 @@ function normalize(raw: RawCard): Card {
 
 const raw = JSON.parse(await fs.readFile(RAW_CARDS_PATH, "utf8")) as { data: RawCard[] };
 const cards = raw.data
-  .filter((card) => !SKIPPED_FRAMES.has(card.frameType) && isReleased(card))
+  .filter((card) => !SKIPPED_FRAMES.has(card.frameType) && isOfficial(card))
   .map(normalize)
   .sort((a, b) => a.id - b.id);
 

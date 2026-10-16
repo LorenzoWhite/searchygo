@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { ATTRIBUTES, FORMATS, MD_RARITIES, MD_RARITY_NAMES, MONSTER_TYPES, type Card, type CardKind, type MasterDuelRarity } from "@/lib/card";
 import { copiesOf, deckSize, homeSection, whyNot } from "@/lib/deck";
 import { ROLES } from "@/lib/vocabulary";
@@ -730,6 +730,36 @@ export function SearchApp() {
               </ol>
             ) : (
               <>
+                {data.counters && (
+                  <div className="synergy zone">
+                    <p className="synergy__plan">
+                      <strong>{data.counters.archetype}</strong> {data.counters.plan}
+                    </p>
+                    {(["going_first", "going_second", "either"] as const).map((when) => {
+                      const weaknesses = data.counters!.weaknesses.filter((weakness) => weakness.when === when);
+                      if (!weaknesses.length) return null;
+                      return (
+                        <Fragment key={when}>
+                          <p className="synergy__label">
+                            {when === "going_first" ? "Going first, stop it while it plays:" : when === "going_second" ? "Going second, break what it ends on:" : "Either way:"}
+                          </p>
+                          <ul className="synergy__hooks">
+                            {weaknesses.map((weakness) => (
+                              <li key={weakness.label}>
+                                <strong>{weakness.label}</strong> {weakness.why}
+                              </li>
+                            ))}
+                          </ul>
+                        </Fragment>
+                      );
+                    })}
+                    <p className="synergy__note">
+                      {data.counters.with ? `Only cards that also work with ${data.counters.with} are shown. ` : "The answers players side against it come first. "}
+                      A model worked this out from the archetype’s cards, so these are suggestions to check, not rulings.
+                    </p>
+                  </div>
+                )}
+
                 {data.synergy && (
                 <div className="synergy zone">
                   <p className="synergy__plan">

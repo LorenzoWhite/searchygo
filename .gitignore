@@ -33,3 +33,7 @@ public/cards/
 design-src/texturelabs/
 data/synergy/trials/
 data/synergy/*.replies.jsonl
+data/counters/trials/
+data/counters/failures.jsonl
+data/counters/replies.jsonl
+data/counters/*.log

@@ -8,6 +8,7 @@
 import { releaseDate, type Attribute, type Card, type CardKind, type MasterDuelRarity, type Subtype } from "./card.ts";
 import { matchCard } from "./effect-match.ts";
 import { buildArchetypeMatcher, interpret, type EffectQuery } from "./query.ts";
+import { findCounters, type CounterProfile, type Timing } from "./counters.ts";
 import { findPartners, type ArchetypeProfile } from "./synergy.ts";
 import type { CardTags } from "./tags.ts";
 import { tokenize } from "./text.ts";
@@ -43,6 +44,19 @@ export interface SearchHit {
   score: number;
   /** In a synergy search: the reasons this card fits the archetype, as the profile names them. */
   fits?: string[];
+  /** In a counters search: the weaknesses of the deck this card hits, and when. */
+  stops?: { label: string; when: Timing }[];
+  /** In a counters search: set when the profile names this card as one players use against the deck. */
+  answer?: { why: string; when: Timing };
+}
+
+/** What a counters search was looking for, so the results can be explained. */
+export interface CounterReading {
+  archetype: string;
+  plan: string;
+  weaknesses: { label: string; why: string; when: Timing; matches: number }[];
+  /** In a combined search ("Branded synergy that counters Spright"): the deck the cards must also fit. */
+  with?: string;
 }
 
 /** What a synergy search was looking for, so the results can be explained. */
@@ -62,6 +76,7 @@ export interface SearchResult {
     matched: boolean;
   };
   synergy?: SynergyReading;
+  counters?: CounterReading;
   /** How each exclusion was read, in the order given. One that could not be read is not listed. */
   excluded?: { text: string; chips: string[] }[];
 }
@@ -81,8 +96,46 @@ const SYNERGY_PATTERNS = [
   /^(?:partners?|tech|splash(?:able)?(?: cards?)?) for (.+)$/,
   /^(.+?) (?:synerg(?:y|ies|istic)|partners?)(?: cards?| picks?| options?)?$/,
 ];
+/**
+ * The ways people ask what beats a deck. Each captures the deck's name: "counters to X", "how to
+ * beat X", "what stops X", "anti-X", "cards against X", "X counters", "X side deck". They only take
+ * effect when the name is an archetype with a counter profile, so "counter traps" and "Spell
+ * Counters" keep their ordinary meaning.
+ */
+const COUNTER_PATTERNS = [
+  /^(?:cards? )?(?:that |which |to )?(?:hard[- ])?(?:counters?|beats?|stops?|answers?|checks?|shuts? down) (?:to |for |against |vs\.? )?(.+)$/,
+  /^how (?:do (?:i|you|we) |to |can (?:i|you) |should (?:i|you) )?(?:beat|stop|counter|deal with|play against|side against|break|handle) (.+)$/,
+  /^(?:anti[- ]|side(?:ing)? (?:against|vs\.?|versus) |(?:good |best )?(?:cards? )?(?:against|vs\.?|versus) )(.+)$/,
+  /^(.+?) (?:hard[- ])?(?:counters?|side(?: deck)?(?: cards?| options?)?|siding|weakness(?:es)?|answers?|checks?)$/,
+];
+/**
+ * Cards that work with one deck and stop another: "Branded synergy that counters Spright", "cards
+ * that work with Branded and stop Spright", "counters to Spright that work with Branded", "counters
+ * to Spright for Branded". Each gives the deck to fit and the deck to stop, in that order of groups
+ * or the reverse.
+ */
+const COMBINED_PATTERNS: { pattern: RegExp; fit: 1 | 2; stop: 1 | 2 }[] = [
+  { pattern: /^(.+?) (?:that|which|and|to) (?:also )?(?:counters?|beats?|stops?|hits?|answers?) (.+)$/, fit: 1, stop: 2 },
+  { pattern: /^(?:counters?|answers?|side(?: deck)? cards?) (?:to |for |against )?(.+?) (?:that|which) (?:also )?(?:works?|goes|go|fits?|synerg\w+|plays?) (?:well )?(?:with|in|into) (.+)$/, fit: 2, stop: 1 },
+  { pattern: /^(?:counters?|answers?) (?:to|for|against) (.+?) (?:for|in) (.+)$/, fit: 2, stop: 1 },
+];
 /** How a question is opened before it gets to the point: "what works with...", "show me cards that...". */
 const QUESTION_OPENING = /^(?:what|which|show me|find|list|give me|any|are there(?: any)?)(?: is| are)?(?: the| some)? /;
+
+/** A question as typed, evened out and with its opening ("what", "show me") taken off. */
+const asking = (text: string) =>
+  text.toLowerCase().replace(/["“”?.!]/g, " ").replace(/\s+/g, " ").trim().replace(QUESTION_OPENING, "");
+
+/** The archetype a phrase names among those with a profile ("the true dracos deck"), by its lower-cased key. */
+function deckNamed(phrase: string, known: ReadonlyMap<string, { archetype: string }>): string | null {
+  const name = phrase
+    .trim()
+    .replace(/^(?:the|a|an|my) /, "")
+    .replace(/ (?:decks?|cards?|archetype|engine|monsters|players?)$/, "");
+  // The name as typed, then without a plural "s" ("true dracos").
+  const found = known.get(name) ?? known.get(name.replace(/s$/, ""));
+  return found ? found.archetype.toLowerCase() : null;
+}
 
 interface Entry {
   card: Card;
@@ -134,10 +187,19 @@ export class SearchIndex {
   /** Archetype profiles by lower-cased name, and the partners each one finds, worked out on first use. */
   private profiles = new Map<string, { archetype: string; profile: ArchetypeProfile }>();
   private partners = new Map<string, ReturnType<typeof findPartners>>();
+  /** Counter profiles by lower-cased name, and the counters each one finds, worked out on first use. */
+  private counterProfiles = new Map<string, { archetype: string; profile: CounterProfile }>();
+  private counters = new Map<string, ReturnType<typeof findCounters>>();
   readonly taggedCount: number;
 
-  constructor(cards: Card[], tagsById: Map<number, CardTags>, profiles: ReadonlyMap<string, ArchetypeProfile> = new Map()) {
+  constructor(
+    cards: Card[],
+    tagsById: Map<number, CardTags>,
+    profiles: ReadonlyMap<string, ArchetypeProfile> = new Map(),
+    counterProfiles: ReadonlyMap<string, CounterProfile> = new Map(),
+  ) {
     for (const [archetype, profile] of profiles) this.profiles.set(archetype.toLowerCase(), { archetype, profile });
+    for (const [archetype, profile] of counterProfiles) this.counterProfiles.set(archetype.toLowerCase(), { archetype, profile });
     let totalLength = 0;
     const archetypeCards = new Map<string, number>();
     for (const card of cards) {
@@ -231,6 +293,9 @@ export class SearchIndex {
       return { total: scored.length, hits, reading };
     };
 
+    const counter = query.literal || !this.counterProfiles.size ? null : this.counterTarget(text);
+    if (counter) return this.searchCounters(counter.stop, counter.fit, matchesFilters, query);
+
     const synergy = query.literal ? null : this.synergyTarget(text);
     if (synergy) return this.searchSynergy(synergy, matchesFilters, query);
 
@@ -245,27 +310,97 @@ export class SearchIndex {
 
   /** The archetype a search asks for partners of ("synergy with clown crew"), when it has a profile. */
   private synergyTarget(text: string): string | null {
-    const asked = text.toLowerCase().replace(/["“”?.!]/g, " ").replace(/\s+/g, " ").trim().replace(QUESTION_OPENING, "");
+    const asked = asking(text);
     for (const pattern of SYNERGY_PATTERNS) {
       const target = pattern.exec(asked)?.[1];
-      if (!target) continue;
-      const name = target.replace(/^(?:the|a|an|my) /, "").replace(/ (?:decks?|cards?|archetype|engine|monsters)$/, "");
-      // The name as typed, then without a plural "s" ("true dracos").
-      const known = this.profiles.get(name) ?? this.profiles.get(name.replace(/s$/, ""));
-      if (known) return known.archetype.toLowerCase();
+      const known = target && deckNamed(target, this.profiles);
+      if (known) return known;
     }
     return null;
+  }
+
+  /**
+   * The archetype a search asks the counters to ("how to beat spright"), when it has a counter
+   * profile, and the deck the counters must also work with when the search names one.
+   */
+  private counterTarget(text: string): { stop: string; fit?: string } | null {
+    const asked = asking(text);
+    for (const { pattern, fit, stop } of COMBINED_PATTERNS) {
+      const match = pattern.exec(asked);
+      if (!match) continue;
+      const stopped = deckNamed(match[stop]!, this.counterProfiles);
+      // The deck to fit may be named plainly ("branded") or as a synergy search ("branded synergy").
+      const fitted = deckNamed(match[fit]!, this.profiles) ?? this.synergyTarget(match[fit]!);
+      if (stopped && fitted) return { stop: stopped, fit: fitted };
+    }
+    for (const pattern of COUNTER_PATTERNS) {
+      const target = pattern.exec(asked)?.[1];
+      const known = target && deckNamed(target, this.counterProfiles);
+      if (known) return { stop: known };
+    }
+    return null;
+  }
+
+  private partnersOf(key: string) {
+    let found = this.partners.get(key);
+    if (!found) {
+      const { archetype, profile } = this.profiles.get(key)!;
+      found = findPartners(profile, archetype, this.entries);
+      this.partners.set(key, found);
+    }
+    return found;
+  }
+
+  /**
+   * Cards from outside an archetype that stop it, in the order the counters were found. With `fit`,
+   * only those that are also partners of that other deck, each saying why it fits as well.
+   */
+  private searchCounters(key: string, fit: string | undefined, matchesFilters: (entry: Entry) => boolean, query: SearchQuery): SearchResult {
+    const { archetype, profile } = this.counterProfiles.get(key)!;
+    let found = this.counters.get(key);
+    if (!found) {
+      found = findCounters(profile, archetype, this.entries);
+      this.counters.set(key, found);
+    }
+    const { weaknesses, counters } = found;
+
+    let fitsOf: Map<number, string[]> | undefined;
+    if (fit) {
+      const { hooks, partners } = this.partnersOf(fit);
+      fitsOf = new Map(partners.map(({ index, fits }) => [index, fits.map((at) => hooks[at]!.hook.label)]));
+    }
+    const fitting = counters.filter(({ index }) => matchesFilters(this.entries[index]!) && (!fitsOf || fitsOf.has(index)));
+    const offset = query.offset ?? 0;
+    const fitName = fit && this.profiles.get(fit)!.archetype;
+    return {
+      total: fitting.length,
+      hits: fitting.slice(offset, offset + (query.limit ?? 30)).map(({ index, answer, stops }) => {
+        const { card, tags } = this.entries[index]!;
+        return {
+          card,
+          tags,
+          score: stops.length + (answer ? 1 : 0),
+          stops: stops.map((at) => ({ label: weaknesses[at]!.weakness.label, when: weaknesses[at]!.weakness.when })),
+          answer: answer && { why: answer.why, when: answer.when },
+          fits: fitsOf?.get(index),
+        };
+      }),
+      reading: { chips: [`Counters to: ${archetype}`, ...(fitName ? [`Works with: ${fitName}`] : [])], matched: true },
+      counters: {
+        archetype,
+        plan: profile.plan,
+        weaknesses: weaknesses
+          .filter(({ ignored, matches }) => !ignored && matches > 0)
+          .map(({ weakness, matches }) => ({ label: weakness.label, why: weakness.why, when: weakness.when, matches })),
+        with: fitName || undefined,
+      },
+    };
   }
 
   /** Cards from outside an archetype that fit what its profile says the deck wants. */
   private searchSynergy(key: string, matchesFilters: (entry: Entry) => boolean, query: SearchQuery): SearchResult {
     const { archetype, profile } = this.profiles.get(key)!;
-    let found = this.partners.get(key);
-    if (!found) {
-      found = findPartners(profile, archetype, this.entries);
-      this.partners.set(key, found);
-    }
-    const { hooks, partners } = found;
+    const { hooks, partners } = this.partnersOf(key);
     const fitting = partners.filter(({ index }) => matchesFilters(this.entries[index]!));
     const offset = query.offset ?? 0;
     return {

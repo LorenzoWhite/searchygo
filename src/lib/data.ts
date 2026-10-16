@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import type { Card } from "./card.ts";
 import { SearchIndex } from "./search.ts";
+import type { CounterProfile, CounteredArchetype } from "./counters.ts";
 import type { ArchetypeProfile, ProfiledArchetype } from "./synergy.ts";
 import type { CardTags, TaggedCard } from "./tags.ts";
 
@@ -29,7 +30,19 @@ async function load(): Promise<SearchIndex> {
     profiles.set(row.archetype, row.profile);
   }
 
-  return new SearchIndex(cards, tagsById, profiles);
+  const counters = new Map<string, CounterProfile>();
+  // Counter searches are switched on per machine, so they can be tried locally before the live site
+  // gets them: SEARCHYGO_COUNTERS=1 in .env.local here, and in Vercel's settings when it is time.
+  if (process.env.SEARCHYGO_COUNTERS === "1") {
+    const counterLines = await fs.readFile(path.join(DATA_DIR, "counters/profiles.jsonl"), "utf8").catch(() => "");
+    for (const line of counterLines.split("\n")) {
+      if (!line) continue;
+      const row = JSON.parse(line) as CounteredArchetype;
+      counters.set(row.archetype, row.profile);
+    }
+  }
+
+  return new SearchIndex(cards, tagsById, profiles, counters);
 }
 
 let index: Promise<SearchIndex> | undefined;

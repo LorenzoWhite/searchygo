@@ -1,7 +1,11 @@
 /**
- * One-time synergy job: has a model read each archetype's cards and write down which kinds of
- * outside card work with it, to data/synergy/profiles.jsonl. The search then answers "synergy with
- * <archetype>" from those profiles without calling a model.
+ * One-time archetype jobs: a model reads each archetype's cards once and writes a profile the search
+ * answers from without calling a model.
+ *
+ *   --job synergy (the default)  which kinds of outside card work with it, to data/synergy/profiles.jsonl,
+ *                                for "synergy with <archetype>"
+ *   --job counters               what it relies on and which cards stop it, to data/counters/profiles.jsonl,
+ *                                for "counters to <archetype>"
  *
  *   pnpm cards:synergy --dry-run                         show what would be sent and a rough cost, without calling an API
  *   pnpm cards:synergy --provider deepseek --sample 12   profile a few archetypes right away to check quality
@@ -11,7 +15,8 @@
  * --model picks the model within the provider and --effort how hard it reasons. --out writes to a
  * different file, so the same archetypes can be profiled by several models and compared. --limit
  * profiles only the next N archetypes, and --budget stops once about that many dollars are spent.
- * --redo profiles the chosen archetypes again, replacing what is stored.
+ * --redo profiles the chosen archetypes again, replacing what is stored. --order recent takes the
+ * newest archetypes first (by their first card's release) instead of the most-viewed.
  *
  * Every reply is kept as the model wrote it in data/synergy/replies.jsonl. --reread rebuilds the
  * profiles from those replies without calling an API, for when the rules for reading a reply change.
@@ -26,7 +31,8 @@ import { parseArgs } from "node:util";
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import type { Card } from "../src/lib/card.ts";
-import { findPartners, readProfile, type ArchetypeProfile, type Candidate, type ProfiledArchetype } from "../src/lib/synergy.ts";
+import { cardNamedLike, findCounters, readCounterProfile, type CounterProfile } from "../src/lib/counters.ts";
+import { findPartners, readProfile, type ArchetypeProfile, type Candidate } from "../src/lib/synergy.ts";
 import type { TaggedCard } from "../src/lib/tags.ts";
 import {
   DEEPSEEK_BASE_URL,
@@ -44,12 +50,25 @@ import {
   type Reply,
   type Usage,
 } from "./models.ts";
-import { CARDS_PATH, ENV_PATH, SYNERGY_FAILURES_PATH, SYNERGY_PATH, SYNERGY_REPLIES_PATH, TAGS_PATH } from "./paths.ts";
+import { COUNTER_EXAMPLES, buildCounterPrompt, counterFormat } from "./counter-prompt.ts";
+import {
+  CARDS_PATH,
+  COUNTERS_FAILURES_PATH,
+  COUNTERS_PATH,
+  COUNTERS_REPLIES_PATH,
+  ENV_PATH,
+  SYNERGY_FAILURES_PATH,
+  SYNERGY_PATH,
+  SYNERGY_REPLIES_PATH,
+  TAGS_PATH,
+} from "./paths.ts";
 import { parseJsonObject } from "./reply-parsing.ts";
 import { MAX_CARDS_SHOWN, SYNERGY_EXAMPLES, buildSynergyPrompt, profileFormat, renderArchetype } from "./synergy-prompt.ts";
 
 const { values: args } = parseArgs({
   options: {
+    job: { type: "string", default: "synergy" },
+    order: { type: "string", default: "views" },
     provider: { type: "string", default: "anthropic" },
     model: { type: "string" },
     effort: { type: "string", default: "low" },
@@ -72,9 +91,62 @@ if (!(args.provider in PROVIDERS)) {
 const provider = args.provider as Provider;
 const model = args.model ?? PROVIDERS[provider].defaultModel;
 const priced = priceKey(provider, model);
-const profilesPath = args.out ?? SYNERGY_PATH;
+
+type Profile = ArchetypeProfile | CounterProfile;
+/** A line of a profiles file. */
+interface ProfiledArchetype {
+  archetype: string;
+  /** How many cards the archetype had when it was profiled. */
+  cards: number;
+  model: string;
+  effort?: string;
+  profile: Profile;
+}
+
+/** What differs between the jobs: the instructions, how a reply is read, and where it all goes. */
+interface Job {
+  profiles: string;
+  failures: string;
+  replies: string;
+  examples: { archetype: string; profile: Profile }[];
+  prompt: () => string;
+  format: () => { type: "json_schema"; schema: Record<string, unknown> };
+  read: (reply: unknown, archetype: string) => { profile: Profile; dropped: string[] } | null;
+  show: (name: string, profile: Profile, candidates: Candidate[]) => void;
+}
+
+const JOBS: Record<string, Job> = {
+  synergy: {
+    profiles: SYNERGY_PATH,
+    failures: SYNERGY_FAILURES_PATH,
+    replies: SYNERGY_REPLIES_PATH,
+    examples: SYNERGY_EXAMPLES,
+    prompt: buildSynergyPrompt,
+    format: profileFormat,
+    read: readProfile,
+    show: (name, profile, candidates) => showSynergy(name, profile as ArchetypeProfile, candidates),
+  },
+  counters: {
+    profiles: COUNTERS_PATH,
+    failures: COUNTERS_FAILURES_PATH,
+    replies: COUNTERS_REPLIES_PATH,
+    examples: COUNTER_EXAMPLES,
+    prompt: buildCounterPrompt,
+    format: counterFormat,
+    read: (reply, archetype) => readCounterProfile(reply, archetype, cardNamed),
+    show: (name, profile, candidates) => showCounters(name, profile as CounterProfile, candidates),
+  },
+};
+const chosen: Job | undefined = JOBS[args.job];
+if (!chosen) {
+  console.error(`Unknown --job "${args.job}". Use one of: ${Object.keys(JOBS).join(", ")}.`);
+  process.exit(1);
+}
+const job: Job = chosen;
+
+const profilesPath = args.out ?? job.profiles;
 /** Replies from a trial run written elsewhere stay beside it, so --reread on the real profiles never picks them up. */
-const repliesPath = args.out ? args.out.replace(/(\.jsonl)?$/, ".replies.jsonl") : SYNERGY_REPLIES_PATH;
+const repliesPath = args.out ? args.out.replace(/(\.jsonl)?$/, ".replies.jsonl") : job.replies;
 
 /** An archetype with fewer cards than this is a pair of cards, not a deck with a plan. */
 const MIN_CARDS = 3;
@@ -99,25 +171,34 @@ interface Archetype {
   name: string;
   cards: Card[];
   views: number;
+  /** When its first card came out (YYYY-MM-DD), in whichever game had it first; "" if never. */
+  debut: string;
 }
 
 const cards = JSON.parse(fs.readFileSync(CARDS_PATH, "utf8")) as Card[];
+const cardNamed = cardNamedLike(cards);
 const grouped = new Map<string, Card[]>();
 for (const card of cards) {
   if (card.archetype) grouped.set(card.archetype, [...(grouped.get(card.archetype) ?? []), card]);
 }
-// Most-viewed first, so a run that stops early has covered the decks people look up most.
+const debutOf = (members: Card[]) =>
+  members
+    .flatMap((card) => [card.tcgDate, card.ocgDate])
+    .filter((date): date is string => !!date)
+    .sort()[0] ?? "";
+// Most-viewed first, so a run that stops early has covered the decks people look up most. With
+// --order recent, the newest archetypes come first instead, for working back through them in batches.
 const archetypes: Archetype[] = [...grouped]
   .filter(([, members]) => members.length >= MIN_CARDS)
-  .map(([name, members]) => ({ name, cards: members, views: members.reduce((sum, card) => sum + card.views, 0) }))
-  .sort((a, b) => b.views - a.views);
+  .map(([name, members]) => ({ name, cards: members, views: members.reduce((sum, card) => sum + card.views, 0), debut: debutOf(members) }))
+  .sort(args.order === "recent" ? (a, b) => b.debut.localeCompare(a.debut) || b.views - a.views : (a, b) => b.views - a.views);
 const byName = new Map(archetypes.map((archetype) => [archetype.name.toLowerCase(), archetype]));
 
 const stored = readJsonl<ProfiledArchetype>(profilesPath);
 const profiled = new Set(stored.map((row) => row.archetype));
 
 // The worked examples from the prompt are already profiled by hand.
-for (const example of SYNERGY_EXAMPLES) {
+for (const example of job.examples) {
   const archetype = byName.get(example.archetype.toLowerCase());
   if (archetype && !profiled.has(archetype.name) && !args["dry-run"]) {
     fs.mkdirSync(path.dirname(profilesPath), { recursive: true });
@@ -125,7 +206,7 @@ for (const example of SYNERGY_EXAMPLES) {
     profiled.add(archetype.name);
   }
 }
-const exampleNames = new Set(SYNERGY_EXAMPLES.map((example) => example.archetype.toLowerCase()));
+const exampleNames = new Set(job.examples.map((example) => example.archetype.toLowerCase()));
 
 /** Half from the most-viewed archetypes (easy to judge), half spread evenly across the rest. */
 function pickSample(from: Archetype[], size: number): Archetype[] {
@@ -150,7 +231,7 @@ if (!args.redo) todo = todo.filter((archetype) => !profiled.has(archetype.name))
 if (args.sample) todo = pickSample(todo, Number(args.sample));
 if (args.limit) todo = todo.slice(0, Number(args.limit));
 
-const systemPrompt = buildSynergyPrompt();
+const systemPrompt = job.prompt();
 
 // --- Talking to each provider -----------------------------------------------------------------
 
@@ -163,7 +244,7 @@ async function askClaude(client: Anthropic, message: string): Promise<Reply> {
     // The instructions are identical for every request, so cache them; only the archetype varies.
     system: [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral", ttl: "1h" } }],
     messages: [{ role: "user", content: message }],
-    output_config: { effort: args.effort as NonNullable<Anthropic.OutputConfig["effort"]>, format: profileFormat() },
+    output_config: { effort: args.effort as NonNullable<Anthropic.OutputConfig["effort"]>, format: job.format() },
   });
   const stop = reply.stop_reason;
   return {
@@ -228,7 +309,7 @@ const usage: Usage = { input: 0, cacheWrite: 0, cacheRead: 0, output: 0 };
 let spent = 0;
 /** archetype -> why it could not be profiled in the latest attempt */
 const failures = new Map<string, string>();
-const written = new Map<string, ArchetypeProfile>();
+const written = new Map<string, Profile>();
 
 function fail(name: string, reason: string) {
   failures.set(name, reason);
@@ -248,7 +329,7 @@ function handleReply(reply: Reply, archetype: Archetype) {
   } catch {
     return fail(archetype.name, "response was not valid JSON");
   }
-  const read = readProfile(parsed, archetype.name);
+  const read = job.read(parsed, archetype.name);
   if (!read) return fail(archetype.name, "response had no plan or no usable hook");
   for (const reason of read.dropped) console.warn(`  ${archetype.name}: left out ${reason}`);
   appendJsonl(repliesPath, { archetype: archetype.name, model, effort: args.effort, reply: parsed } satisfies StoredReply);
@@ -271,7 +352,7 @@ function reread() {
   let rebuilt = 0;
   const rows = readJsonl<ProfiledArchetype>(profilesPath).map((row) => {
     const kept = latest.get(row.archetype);
-    const read = kept && readProfile(kept.reply, row.archetype);
+    const read = kept && job.read(kept.reply, row.archetype);
     if (!kept || !read) return row;
     rebuilt++;
     return { ...row, model: kept.model, effort: kept.effort, profile: read.profile };
@@ -324,7 +405,7 @@ async function run(ask: (message: string) => Promise<Reply>) {
 }
 
 /** Prints a profile with what each hook finds, so its quality can be judged by eye. */
-function show(name: string, profile: ArchetypeProfile, candidates: Candidate[]) {
+function showSynergy(name: string, profile: ArchetypeProfile, candidates: Candidate[]) {
   const { hooks, partners } = findPartners(profile, name, candidates);
   const names = (indexes: number[]) => indexes.map((index) => candidates[index]!.card.name).join(", ");
   console.log(`\n${name}\n  ${profile.plan}`);
@@ -337,11 +418,26 @@ function show(name: string, profile: ArchetypeProfile, candidates: Candidate[]) 
   console.log(`  Top of ${partners.length} partners: ${names(partners.slice(0, 10).map((partner) => partner.index)) || "none"}`);
 }
 
+/** Prints a counter profile with what each weakness finds and the top of the counters. */
+function showCounters(name: string, profile: CounterProfile, candidates: Candidate[]) {
+  const { weaknesses, counters } = findCounters(profile, name, candidates);
+  const names = (indexes: number[]) => indexes.map((index) => candidates[index]!.card.name).join(", ");
+  console.log(`\n${name}\n  ${profile.plan}`);
+  weaknesses.forEach(({ weakness, matches, ignored }, at) => {
+    const examples = counters.filter((counter) => counter.stops.includes(at)).slice(0, 5);
+    console.log(`  - ${weakness.label} [${weakness.when}]: ${matches} cards${ignored ? " (too broad; not used)" : ""}${matches === 0 ? " (finds nothing)" : ""}`);
+    console.log(`      ${weakness.why}`);
+    if (examples.length) console.log(`      e.g. ${names(examples.map((counter) => counter.index))}`);
+  });
+  for (const answer of profile.answers) console.log(`  * ${answer.name} [${answer.when}]: ${answer.why}`);
+  console.log(`  Top of ${counters.length} counters: ${names(counters.slice(0, 15).map((counter) => counter.index)) || "none"}`);
+}
+
 function printDryRun() {
   // ~3.5 characters per token for prose, ~3 for JSON. Good to within a factor of two, no better.
   const systemTokens = systemPrompt.length / 3.5;
   const archetypeTokens = todo.reduce((sum, archetype) => sum + renderArchetype(archetype.name, archetype.cards).length, 0) / 3.5;
-  const outputTokens = (SYNERGY_EXAMPLES.reduce((sum, example) => sum + JSON.stringify(example.profile).length, 0) / 3 / SYNERGY_EXAMPLES.length) * todo.length;
+  const outputTokens = (job.examples.reduce((sum, example) => sum + JSON.stringify(example.profile).length, 0) / 3 / job.examples.length) * todo.length;
 
   console.log(`${todo.length} archetypes to profile (${profiled.size} already profiled; ${archetypes.length} have ${MIN_CARDS} or more cards).`);
   console.log(`Instructions: ~${Math.round(systemTokens)} tokens, repeated on every request. Archetype cards: ~${Math.round(archetypeTokens)} tokens in all.`);
@@ -358,15 +454,15 @@ function printDryRun() {
 }
 
 function finish() {
-  for (const [archetype, reason] of failures) appendJsonl(SYNERGY_FAILURES_PATH, { archetype, model, reason });
+  for (const [archetype, reason] of failures) appendJsonl(job.failures, { archetype, model, reason });
 
   if (written.size && written.size <= SHOWN_IN_FULL) {
     const tags = new Map(readJsonl<TaggedCard>(TAGS_PATH).map((row) => [row.id, row.tags]));
     const candidates = cards.map((card) => ({ card, tags: tags.get(card.id) }));
-    for (const [name, profile] of written) show(name, profile, candidates);
+    for (const [name, profile] of written) job.show(name, profile, candidates);
   }
 
-  const failed = failures.size ? ` (see ${SYNERGY_FAILURES_PATH}; re-run to retry them)` : "";
+  const failed = failures.size ? ` (see ${job.failures}; re-run to retry them)` : "";
   console.log(`\nProfiled ${written.size} archetypes with ${model}, ${failures.size} failed${failed}.`);
   console.log(
     `Tokens: ${usage.input} input, ${usage.cacheWrite} cache write, ${usage.cacheRead} cache read, ${usage.output} output` +

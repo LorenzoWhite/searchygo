@@ -117,8 +117,12 @@ function readHappening(value: unknown): Happening | null | "invalid" {
   return { verbs, from, player, self: given.self === true, what };
 }
 
-/** Reads one hook as a model wrote it. Returns the reason instead when it cannot be used. */
-function readHook(value: unknown, archetype: string): Hook | string {
+/**
+ * Reads one hook as a model wrote it. Returns the reason instead when it cannot be used.
+ * `checkedElsewhere` is for callers that check something more about the card (a counter's roles),
+ * so a hook made of that alone is not refused for saying nothing.
+ */
+export function readHook(value: unknown, archetype: string, checkedElsewhere = false): Hook | string {
   const given = asObject(value);
   const label = text(given?.label);
   if (!given || !label) return "a hook with no label";
@@ -143,7 +147,7 @@ function readHook(value: unknown, archetype: string): Hook | string {
   // A hook may be nothing but a kind of card ("Level 4 DARK Winged Beast", "Wyrm Synchro monsters"),
   // which is how a deck's materials are described. Only "any monster" or "any Spell" says too little.
   const particular = described && (described.subtypes.length || described.types.length || described.attributes.length || described.level_min || described.level_max);
-  if (!does && !reactsTo && !supports && !phrases.length && !particular) return `"${label}" says nothing a card can be checked against`;
+  if (!does && !reactsTo && !supports && !phrases.length && !particular && !checkedElsewhere) return `"${label}" says nothing a card can be checked against`;
   return { label, why: text(given.why), does, reacts_to: reactsTo, card: described, supports, phrases };
 }
 
@@ -223,7 +227,7 @@ export interface Partner {
   fits: number[];
 }
 
-const belongsTo = (card: Card, archetype: string) =>
+export const belongsTo = (card: Card, archetype: string) =>
   card.archetype?.toLowerCase() === archetype.toLowerCase() || card.name.toLowerCase().includes(archetype.toLowerCase());
 
 /**

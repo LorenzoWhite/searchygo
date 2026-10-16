@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   // The search index is read from data/ at runtime, so make sure it ships with the server bundle.
   outputFileTracingIncludes: {
-    "/api/search": ["./data/cards.json", "./data/tags/tags.jsonl", "./data/synergy/profiles.jsonl"],
+    "/api/search": ["./data/cards.json", "./data/tags/tags.jsonl", "./data/synergy/profiles.jsonl", "./data/counters/profiles.jsonl"],
     "/api/cards": ["./data/cards.json", "./data/tags/tags.jsonl", "./data/synergy/profiles.jsonl"],
   },
   // A card's picture never changes once it is printed, so browsers may keep it for a month. The

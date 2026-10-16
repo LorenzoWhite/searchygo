@@ -185,8 +185,11 @@ function Copies({ card, slot, artOf }: { card: Card; slot: DeckSlot; artOf: () =
   );
 }
 
+/** When a counter is played, as the "Stops" line says it. */
+const WHEN = { going_first: "going first", going_second: "going second", either: "either way" } as const;
+
 export function CardRow({ result, slot }: { result: Result; slot: DeckSlot }) {
-  const { card, summary, roles, fits } = result;
+  const { card, summary, roles, fits, stops, answer } = result;
   const frame = frameOf(card);
   const isMonster = card.kind === "monster";
   const tileRef = useRef<HTMLLIElement>(null);
@@ -232,6 +235,16 @@ export function CardRow({ result, slot }: { result: Result; slot: DeckSlot }) {
               </li>
             ))}
           </ul>
+        )}
+        {answer && (
+          <p className="tile__fits">
+            <span>Answer · {WHEN[answer.when]}</span> {answer.why}
+          </p>
+        )}
+        {stops && stops.length > 0 && (
+          <p className="tile__fits">
+            <span>Stops</span> {stops.map(({ label, when }) => `${label} (${WHEN[when]})`).join(" · ")}
+          </p>
         )}
         {fits && fits.length > 0 && (
           <p className="tile__fits">

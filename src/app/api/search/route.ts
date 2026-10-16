@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
   let answer = answers.get(key);
   if (!answer) {
     const index = await getSearchIndex();
-    const { total, hits, reading, synergy, excluded } = index.search(query);
+    const { total, hits, reading, synergy, counters, excluded } = index.search(query);
     answer = JSON.stringify({
       total,
       page,
@@ -78,11 +78,14 @@ export async function GET(request: NextRequest) {
       reading,
       excluded,
       synergy,
-      results: hits.map(({ card, tags, fits }) => ({
+      counters,
+      results: hits.map(({ card, tags, fits, stops, answer }) => ({
         card,
         summary: tags?.summary,
         roles: tags?.roles ?? [],
         fits,
+        stops,
+        answer,
       })),
     });
     answers.set(key, answer);
