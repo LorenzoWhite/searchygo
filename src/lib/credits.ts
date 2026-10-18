@@ -99,11 +99,4 @@ export const CREDITS: Credit[] = [
     status: "added",
     date: "2026-10-18",
   },
-  {
-    by: ["@OutOfCharacters"],
-    kind: "idea",
-    what: "A way to turn off everything a model made: summaries, roles and synergy",
-    status: "planned",
-    date: "2026-10-18",
-  },
 ];

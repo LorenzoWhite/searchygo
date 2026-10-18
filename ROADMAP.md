@@ -79,9 +79,6 @@ themselves, with nothing to run by hand.
 
 ## Later
 
-- **Plain search switch.** A setting that turns off what AI made: always match the card text's
-  words, hide roles and summaries, turn off synergy, and leave the AI-written keywords out of the
-  ranking. Asked for in a comment.
 - **Cards a card counters.** The reverse of counters, shown on each card: "Counters: Tearlaments,
   Branded, Kashtira…".
 - **Report a problem.** A link on each card or search to say a result is wrong.

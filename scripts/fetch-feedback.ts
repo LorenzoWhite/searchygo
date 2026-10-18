@@ -17,6 +17,9 @@ import { parseArgs } from "node:util";
 import { appendJsonl, readJsonl } from "./models.ts";
 import { ENV_PATH, FEEDBACK_COMMENTS_PATH, FEEDBACK_HANDLED_PATH } from "./paths.ts";
 
+/** The site owner's channel: their own comments and replies never need handling. */
+const OWNER = "@YugiZO";
+
 /** The videos whose comments are watched. */
 const VIDEOS = [{ id: "hihNZ2WPxIs", title: "Search YGO announcement" }];
 
@@ -161,6 +164,7 @@ const comments = latest(readJsonl<Comment>(FEEDBACK_COMMENTS_PATH));
 const handled = latest(readJsonl<Handled>(FEEDBACK_HANDLED_PATH));
 // A comment edited after it was handled is worth another look.
 const open = [...comments.values()].filter((comment) => {
+  if (comment.author === OWNER) return false;
   const done = handled.get(comment.id);
   return !done || done.at < comment.updated;
 });
