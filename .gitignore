@@ -37,3 +37,5 @@ data/counters/trials/
 data/counters/failures.jsonl
 data/counters/replies.jsonl
 data/counters/*.log
+# Other people's comments, fetched for reading; kept on this machine only
+data/feedback/

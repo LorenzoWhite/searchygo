@@ -231,6 +231,93 @@ a {
   padding-bottom: var(--space-3xl);
 }
 
+/* A page with no entrance to play: the rules beside the title are simply drawn. */
+.mast--still .mast__rule {
+  transform: none;
+}
+
+/* --- Credits --------------------------------------------------------------------------------- */
+
+.credits {
+  display: grid;
+  gap: var(--space-xl);
+  max-width: var(--search-width);
+  margin-inline: auto;
+}
+
+.credits__intro {
+  color: var(--color-on-mat);
+}
+
+.credits a {
+  color: var(--color-gold);
+  text-underline-offset: 0.2em;
+}
+
+.credits__group {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.credits__group h2 {
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: 700;
+  font-variant: small-caps;
+  letter-spacing: 0.06em;
+  color: var(--color-gold);
+}
+
+.credits__list {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.credits__list li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-2xs) var(--space-sm);
+  align-items: baseline;
+  padding-inline-start: var(--space-sm);
+  border-inline-start: var(--rule-width) solid var(--color-mat-line);
+}
+
+.credits__list--plain li {
+  display: block;
+  color: var(--color-on-mat-muted);
+}
+
+.credits__kind {
+  grid-row: span 2;
+  min-width: 3.25rem;
+  padding: var(--space-3xs) var(--space-xs);
+  border: var(--rule-width) solid var(--color-gold-dim);
+  border-radius: var(--radius-control);
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-align: center;
+  text-transform: uppercase;
+  color: var(--color-gold);
+}
+
+.credits__what {
+  color: var(--color-on-mat);
+  overflow-wrap: anywhere;
+}
+
+.credits__by {
+  font-size: var(--text-sm);
+  color: var(--color-on-mat-muted);
+  overflow-wrap: anywhere;
+}
+
+.credits__back {
+  font-family: var(--font-display);
+  font-weight: 600;
+}
+
 .search {
   display: grid;
   gap: var(--space-md);

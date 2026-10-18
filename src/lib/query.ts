@@ -30,6 +30,8 @@ export interface EventQuery {
   /** The event must be about the card itself ("Special Summons itself", "when it is banished"). */
   self: boolean;
   object: ObjectQuery;
+  /** "Generic": the effect must not be locked to an archetype or a named card. */
+  generic?: boolean;
 }
 
 export interface EffectQuery {
@@ -44,6 +46,10 @@ export interface EffectQuery {
   quick: boolean;
   /** Where the card is when the effect is used: "GY effects", "effects while banished". */
   worksFrom?: Zone;
+  /** Game terms the card's own text must use, for support of a kind of card ("Normal Monster support"). */
+  mentions?: string[];
+  /** "Generic": nothing in it is locked to an archetype or a named card. */
+  generic?: boolean;
   /** Words the rules did not use, matched against card text. */
   text: string;
 }
@@ -268,7 +274,7 @@ const FILLER = new Set(
 // --- Interpreter ------------------------------------------------------------------------------
 
 type MarkType =
-  | "verb" | "role" | "where" | "from" | "to" | "opponent" | "yours" | "self" | "quick" | "support" | "cue" | "boundary"
+  | "verb" | "role" | "where" | "generic" | "from" | "to" | "opponent" | "yours" | "self" | "quick" | "support" | "cue" | "boundary"
   | "level" | "kind" | "subtype" | "type" | "attribute" | "archetype";
 
 interface Mark {
@@ -319,7 +325,34 @@ const PLAYER_TERMS: [RegExp, string][] = [
   [/\brecruiters?\b/g, "when destroyed by battle special summon a monster from the deck"],
   [/\bfloaters?\b/g, "when this card is destroyed special summon a monster"],
   [/\btutors?\b/g, "searchers"],
+  // "self mill", "self-banish": doing it to your own cards.
+  [/\bself[- ]?(mill\w*|banish\w*|destr\w*|discard\w*|tribut\w*|bounc\w*|send\w*|dump\w*)\b/g, "$1 your own"],
 ];
+
+/** How the cards that support a kind of card name it in their text. */
+const SUBTYPE_TERMS: Record<Subtype, string> = {
+  normal: "Normal Monster",
+  effect: "Effect Monster",
+  tuner: "Tuner",
+  xyz: "Xyz",
+  synchro: "Synchro",
+  fusion: "Fusion",
+  link: "Link",
+  ritual: "Ritual",
+  pendulum: "Pendulum",
+  token: "Token",
+  flip: "FLIP",
+  union: "Union",
+  spirit: "Spirit",
+  gemini: "Gemini",
+  toon: "Toon",
+  field: "Field Spell",
+  quick_play: "Quick-Play Spell",
+  equip: "Equip",
+  counter: "Counter Trap",
+  continuous: "Continuous",
+};
+const GENERIC = /\bgeneric\b/;
 
 export function interpret(
   input: string,
@@ -349,6 +382,7 @@ export function interpret(
   for (const [pattern, role] of ROLE_RULES) scan(pattern, () => ({ type: "role", role }));
   scan(WORKS_FROM, (match) => ({ type: "where", zone: toZone(match[2] ?? match[3] ?? match[4] ?? match[5] ?? match[1]!.split(" ")[0]!) }));
   scan(QUICK, () => ({ type: "quick" }));
+  scan(GENERIC, () => ({ type: "generic" }));
   scan(FROM_ZONE, (match) => ({
     type: "from",
     zone: toZone(match[3]!),
@@ -377,6 +411,8 @@ export function interpret(
   const passive = (mark: Mark) => AUXILIARY.test(text.slice(Math.max(0, mark.start - 7), mark.start));
 
   const query: EffectQuery = { card: emptyObject(), roles: [], quick: false, text: "" };
+  /** Kinds the card picked up only because a subtype implies them ("Normal Monster" → monster). */
+  const impliedKinds: CardKind[] = [];
   const newEvent = (): EventQuery & { to?: Zone; rule?: VerbRule } => ({ verbs: [], from: [], self: false, object: emptyObject() });
   let does: ReturnType<typeof newEvent> | undefined;
   let reactsTo: ReturnType<typeof newEvent> | undefined;
@@ -399,6 +435,9 @@ export function interpret(
         break;
       case "where":
         query.worksFrom = mark.zone;
+        break;
+      case "generic":
+        query.generic = true;
         break;
       case "support":
         supporting = true;
@@ -466,6 +505,7 @@ export function interpret(
       case "subtype":
         targetObject().subtypes.push(mark.subtype!);
         targetObject().kinds.push(...mark.kinds!);
+        if (target === "card") impliedKinds.push(...mark.kinds!);
         break;
       case "type":
         targetObject().types.push(mark.monsterType!);
@@ -509,14 +549,28 @@ export function interpret(
     supports.attributes = query.card.attributes;
     query.card.types = [];
     query.card.attributes = [];
+    // "Normal Monster support" is cards that name Normal Monsters, not Normal Monsters themselves.
+    if (query.card.subtypes.length) {
+      query.mentions = query.card.subtypes.map((subtype) => SUBTYPE_TERMS[subtype]);
+      query.card.subtypes = [];
+      for (const kind of impliedKinds) query.card.kinds.splice(query.card.kinds.indexOf(kind), 1);
+    }
   }
   if (!isEmptyObject(supports)) query.supports = supports;
 
-  const strip = ({ verbs, from, player, self, object }: EventQuery): EventQuery => ({ verbs, from: [...new Set(from)], player, self, object });
+  const strip = ({ verbs, from, player, self, object }: EventQuery): EventQuery => ({
+    verbs,
+    from: [...new Set(from)],
+    player,
+    self,
+    object,
+    ...(query.generic ? { generic: true } : {}),
+  });
   if (does) query.does = strip(does);
   if (reactsTo) query.reactsTo = strip(reactsTo);
 
-  const understood = query.does || query.reactsTo || query.supports || query.roles.length || query.quick || query.worksFrom || !isEmptyObject(query.card);
+  const understood =
+    query.does || query.reactsTo || query.supports || query.roles.length || query.quick || query.worksFrom || query.mentions || !isEmptyObject(query.card);
   if (!understood) return null;
 
   // Whatever no rule claimed still narrows the search, as ordinary text.
@@ -528,9 +582,11 @@ export function interpret(
     cursor = Math.max(cursor, mark.end);
   }
   rest += text.slice(cursor);
+  // A zone already understood ("mill your own deck") says nothing more as a word to find.
+  const zonesRead = new Set([...(query.does?.from ?? []), ...(query.reactsTo?.from ?? []), ...(query.worksFrom ? [query.worksFrom] : [])]);
   query.text = rest
     .split(/[^a-z0-9'@.-]+/)
-    .filter((word) => word && !FILLER.has(word))
+    .filter((word) => word && !FILLER.has(word) && !(zonesRead.has(toZone(word)!) && toZone(word)))
     .join(" ");
 
   return { query, chips: describe(query) };
@@ -596,7 +652,7 @@ function describeEvent(event: EventQuery): string {
   const verbs = [...new Set(event.verbs.map(verbLabel))].join(" or ");
   const what = event.self ? "itself" : describeObject(event.object);
   const owner = event.player === "opponent" ? "opponent's" : event.player === "you" ? "your" : "";
-  const from = event.from.length ? `from ${owner ? owner + " " : ""}${event.from.map((zone) => ZONE_LABELS[zone]).join("/")}` : owner;
+  const from = event.from.length ? `from ${owner ? owner + " " : ""}${event.from.map((zone) => ZONE_LABELS[zone]).join("/")}` : owner && `${owner} cards`;
   return [verbs, what, from].filter(Boolean).join(" · ");
 }
 
@@ -606,6 +662,8 @@ function describe(query: EffectQuery): string[] {
   for (const role of query.roles) chips.push(`Role: ${role.replaceAll("_", " ")}`);
   if (query.quick) chips.push("Usable on the opponent's turn");
   if (query.worksFrom) chips.push(`Effect used from: ${ZONE_LABELS[query.worksFrom]}`);
+  if (query.mentions) chips.push(`Supports: ${query.mentions.join(", ")}`);
+  if (query.generic) chips.push("Generic: not tied to an archetype");
   if (query.does) chips.push(`Does: ${describeEvent(query.does)}`);
   if (query.reactsTo) chips.push(`Reacts to: ${describeEvent(query.reactsTo)}`);
   if (query.supports) chips.push(`Works with: ${describeObject(query.supports)}`);

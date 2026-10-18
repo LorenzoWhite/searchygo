@@ -66,6 +66,7 @@ function matchObject(what: CardFilter, wanted: ObjectQuery): number | null {
 
 function matchEvent(event: GameEvent, wanted: EventQuery): number | null {
   if (!wanted.verbs.includes(event.verb)) return null;
+  if (wanted.generic && (event.what.archetypes.length || event.what.names.length)) return null;
   // No zone given means none was stated: a zoneless verb, or the card's own event ("If this card is
   // Tributed"), which happens wherever the card is.
   const anywhere = !event.from.length && (ZONELESS.has(event.verb) || (wanted.self && event.what.this_card));
@@ -129,9 +130,25 @@ function matchSupports(card: Card, tags: CardTags, wanted: ObjectQuery): boolean
   );
 }
 
+/**
+ * The card's own words, for checking what it names: an Extra Deck monster's first line lists its
+ * materials ("1 Tuner + 1+ non-Tuner monsters"), which is not the card supporting anything.
+ */
+function ownWords(card: Card): string {
+  const materials = card.subtypes.some((subtype) => subtype === "fusion" || subtype === "synchro" || subtype === "xyz" || subtype === "link");
+  const text = materials ? card.text.split("\n").slice(1).join("\n") : card.text;
+  return `${card.pendulumText ?? ""}\n${text}`;
+}
+
 /** Null when the card does not satisfy the query. Otherwise its specificity: higher fits more exactly. */
 export function matchCard(card: Card, tags: CardTags | undefined, query: EffectQuery): number | null {
   if (!matchCardItself(card, query.card)) return null;
+  if (query.mentions?.length) {
+    const words = ownWords(card);
+    if (!query.mentions.every((term) => new RegExp(`\\b${term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`).test(words))) return null;
+  }
+  // "Generic" with nothing to do: a card that belongs to no archetype and supports none.
+  if (query.generic && !query.does && !query.reactsTo && (card.archetype || tags?.supports.archetypes.length)) return null;
 
   const needsTags = query.does || query.reactsTo || query.supports || query.roles.length > 0 || query.quick || query.worksFrom;
   if (!needsTags) return 0;

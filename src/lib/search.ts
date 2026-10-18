@@ -9,7 +9,7 @@ import { releaseDate, type Attribute, type Card, type CardKind, type MasterDuelR
 import { matchCard } from "./effect-match.ts";
 import { buildArchetypeMatcher, interpret, type EffectQuery } from "./query.ts";
 import { findCounters, type CounterProfile, type Timing } from "./counters.ts";
-import { findPartners, type ArchetypeProfile } from "./synergy.ts";
+import { belongsTo, findPartners, type ArchetypeProfile } from "./synergy.ts";
 import type { CardTags } from "./tags.ts";
 import { tokenize } from "./text.ts";
 
@@ -64,6 +64,8 @@ export interface SynergyReading {
   archetype: string;
   plan: string;
   hooks: { label: string; why: string; matches: number }[];
+  /** For "synergy with X and Y": the second deck, read the same way. */
+  partner?: Omit<SynergyReading, "partner">;
 }
 
 export interface SearchResult {
@@ -296,6 +298,9 @@ export class SearchIndex {
     const counter = query.literal || !this.counterProfiles.size ? null : this.counterTarget(text);
     if (counter) return this.searchCounters(counter.stop, counter.fit, matchesFilters, query);
 
+    const pair = query.literal ? null : this.synergyPair(text);
+    if (pair) return this.searchSynergyPair(pair, matchesFilters, query);
+
     const synergy = query.literal ? null : this.synergyTarget(text);
     if (synergy) return this.searchSynergy(synergy, matchesFilters, query);
 
@@ -317,6 +322,66 @@ export class SearchIndex {
       if (known) return known;
     }
     return null;
+  }
+
+  /** Two archetypes a search asks to bring together ("synergy with vaalmonica and sky striker"). */
+  private synergyPair(text: string): [string, string] | null {
+    const asked = asking(text);
+    for (const pattern of SYNERGY_PATTERNS) {
+      const target = pattern.exec(asked)?.[1];
+      if (!target || deckNamed(target, this.profiles)) continue;
+      const names = target.split(/ (?:and|&|\+|plus) |\s*[/,]\s*/);
+      if (names.length !== 2) continue;
+      const [first, second] = names.map((name) => deckNamed(name, this.profiles));
+      if (first && second && first !== second) return [first, second];
+    }
+    return null;
+  }
+
+  /**
+   * Cards that work with two decks at once. A card from one deck that fits the other bridges them,
+   * so those come first; then outside cards that fit both, the ones fitting most reasons first.
+   */
+  private searchSynergyPair(keys: [string, string], matchesFilters: (entry: Entry) => boolean, query: SearchQuery): SearchResult {
+    const decks = keys.map((key) => {
+      const { archetype, profile } = this.profiles.get(key)!;
+      const { hooks, partners } = this.partnersOf(key);
+      const fits = new Map(partners.map(({ index, fits }) => [index, fits.map((at) => `${archetype}: ${hooks[at]!.hook.label}`)]));
+      return { archetype, profile, hooks, fits };
+    });
+    const [a, b] = decks as [(typeof decks)[number], (typeof decks)[number]];
+    const views = (index: number) => this.entries[index]!.card.views;
+    const member = (index: number, deck: typeof a) => belongsTo(this.entries[index]!.card, deck.archetype);
+
+    const bridges: { index: number; fits: string[] }[] = [];
+    const shared: { index: number; fits: string[] }[] = [];
+    this.entries.forEach((entry, index) => {
+      if (!matchesFilters(entry)) return;
+      const inA = member(index, a);
+      const inB = member(index, b);
+      if (inA && inB) return;
+      if (inA && b.fits.has(index)) bridges.push({ index, fits: b.fits.get(index)! });
+      else if (inB && a.fits.has(index)) bridges.push({ index, fits: a.fits.get(index)! });
+      else if (a.fits.has(index) && b.fits.has(index)) shared.push({ index, fits: [...a.fits.get(index)!, ...b.fits.get(index)!] });
+    });
+    const byFit = (x: { index: number; fits: string[] }, y: { index: number; fits: string[] }) => y.fits.length - x.fits.length || views(y.index) - views(x.index);
+    const found = [...bridges.sort(byFit), ...shared.sort(byFit)];
+
+    const offset = query.offset ?? 0;
+    const reading = (deck: typeof a) => ({
+      archetype: deck.archetype,
+      plan: deck.profile.plan,
+      hooks: deck.hooks.filter(({ ignored, matches }) => !ignored && matches > 0).map(({ hook, matches }) => ({ label: hook.label, why: hook.why, matches })),
+    });
+    return {
+      total: found.length,
+      hits: found.slice(offset, offset + (query.limit ?? 30)).map(({ index, fits }) => {
+        const { card, tags } = this.entries[index]!;
+        return { card, tags, score: fits.length, fits };
+      }),
+      reading: { chips: [`Synergy with: ${a.archetype} + ${b.archetype}`], matched: true },
+      synergy: { ...reading(a), partner: reading(b) },
+    };
   }
 
   /**

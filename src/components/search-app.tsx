@@ -762,17 +762,27 @@ export function SearchApp() {
 
                 {data.synergy && (
                 <div className="synergy zone">
-                  <p className="synergy__plan">
-                    <strong>{data.synergy.archetype}</strong> {data.synergy.plan}
-                  </p>
-                  <p className="synergy__label">Looking for cards from outside it that are</p>
-                  <ul className="synergy__hooks">
-                    {data.synergy.hooks.map((hook) => (
-                      <li key={hook.label}>
-                        <strong>{hook.label}</strong> {hook.why}
-                      </li>
-                    ))}
-                  </ul>
+                  {[data.synergy, ...(data.synergy.partner ? [data.synergy.partner] : [])].map((deck) => (
+                    <Fragment key={deck.archetype}>
+                      <p className="synergy__plan">
+                        <strong>{deck.archetype}</strong> {deck.plan}
+                      </p>
+                      <p className="synergy__label">Looking for cards from outside it that are</p>
+                      <ul className="synergy__hooks">
+                        {deck.hooks.map((hook) => (
+                          <li key={hook.label}>
+                            <strong>{hook.label}</strong> {hook.why}
+                          </li>
+                        ))}
+                      </ul>
+                    </Fragment>
+                  ))}
+                  {data.synergy.partner && (
+                    <p className="synergy__note">
+                      Cards that work with both: first the {data.synergy.archetype} cards that fit {data.synergy.partner.archetype} and the{" "}
+                      {data.synergy.partner.archetype} cards that fit {data.synergy.archetype}, then outside cards that fit both.
+                    </p>
+                  )}
                   <p className="synergy__note">
                     A model worked this out from the archetype’s cards, so these are suggestions to check, not rulings.
                   </p>
@@ -850,6 +860,9 @@ export function SearchApp() {
             </a>
             . Summaries are machine-written and can be wrong; the card text is the exact wording. An unofficial fan
             project, not affiliated with or endorsed by Konami. Card text and artwork belong to their owners.
+          </p>
+          <p>
+            <a href="/credits">Credits</a>: the people who found bugs and suggested changes.
           </p>
         </footer>
       </div>

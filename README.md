@@ -68,7 +68,10 @@ small images into `public/cards/` (about 400 MB, not committed).
 Players' names for kinds of card ("recruiters", "floaters", "tutors") are read as the effect they
 describe (`PLAYER_TERMS` in `src/lib/query.ts`), so they work like any other effect search.
 "GY effects", "effects in the hand" and "while banished" ask where the card is when its effect is
-used, which every card's tags record.
+used, which every card's tags record. "self mill" and "self-banish" mean doing it to your own cards; "Normal
+Monster support" (or Tuner, Ritual, Pendulum… support) finds cards whose own text names that kind of
+card; "generic" leaves out effects locked to an archetype or a named card; and "synergy with X and Y"
+finds cards that work with both decks, starting with the cards from one deck that fit the other.
 
 Cards can also be filtered by format (TCG, OCG, Master Duel, Duel Links, Speed Duel, GOAT, OCG GOAT,
 Edison, Common Charity, as YGOPRODeck lists them) and by the year they first came out: in the OCG
