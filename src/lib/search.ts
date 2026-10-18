@@ -9,6 +9,7 @@ import { releaseDate, type Attribute, type Card, type CardKind, type MasterDuelR
 import { matchCard } from "./effect-match.ts";
 import { buildArchetypeMatcher, interpret, type EffectQuery } from "./query.ts";
 import { findCounters, type CounterProfile, type Timing } from "./counters.ts";
+import { SORT_DIRECTIONS, type SortBy, type SortDirection } from "./sort.ts";
 import { belongsTo, findPartners, type ArchetypeProfile } from "./synergy.ts";
 import type { CardTags } from "./tags.ts";
 import { tokenize } from "./text.ts";
@@ -34,8 +35,50 @@ export interface SearchQuery {
   genesysMax?: number;
   /** Searches whose results are to be left out of this one's. */
   exclude?: string[];
+  /** How the results are ordered; absent means best match first. */
+  sort?: SortBy;
+  /** Absent means the order's natural direction (see SORT_DIRECTIONS). */
+  dir?: SortDirection;
   offset?: number;
   limit?: number;
+}
+
+/** What a card is ordered by; undefined when it has none (a Spell's ATK, a "?" DEF, an unreleased card's date). */
+function sortValue(card: Card, by: SortBy, format?: string): string | number | undefined {
+  switch (by) {
+    case "name":
+      return card.name;
+    case "atk":
+      return card.atk ?? undefined;
+    case "def":
+      return card.def ?? undefined;
+    case "level":
+      return card.level ?? card.rank ?? card.linkRating;
+    case "date":
+      return releaseDate(card, format);
+    case "popular":
+      return card.views;
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * Puts results in the order asked for, before they are split into pages. Cards with nothing to
+ * order by go last whichever way the order runs, and ties keep the search's own ranking.
+ */
+function arrange<T>(items: T[], cardOf: (item: T) => Card, query: SearchQuery): T[] {
+  const by = query.sort;
+  if (!by || by === "match") return items;
+  const sign = (query.dir ?? SORT_DIRECTIONS[by]) === "asc" ? 1 : -1;
+  return items
+    .map((item, rank) => ({ item, rank, value: sortValue(cardOf(item), by, query.format) }))
+    .sort((a, b) => {
+      if (a.value === undefined || b.value === undefined) return a.value === b.value ? a.rank - b.rank : a.value === undefined ? 1 : -1;
+      const order = typeof a.value === "string" ? a.value.localeCompare(b.value as string) : a.value - (b.value as number);
+      return order * sign || a.rank - b.rank;
+    })
+    .map(({ item }) => item);
 }
 
 export interface SearchHit {
@@ -291,7 +334,9 @@ export class SearchIndex {
     const text = query.text ?? "";
     const page = (scored: Scored[], reading?: SearchResult["reading"]): SearchResult => {
       const offset = query.offset ?? 0;
-      const hits = scored.slice(offset, offset + (query.limit ?? 30)).map(({ entry, score }) => ({ card: entry.card, tags: entry.tags, score }));
+      const hits = arrange(scored, ({ entry }) => entry.card, query)
+        .slice(offset, offset + (query.limit ?? 30))
+        .map(({ entry, score }) => ({ card: entry.card, tags: entry.tags, score }));
       return { total: scored.length, hits, reading };
     };
 
@@ -375,7 +420,7 @@ export class SearchIndex {
     });
     return {
       total: found.length,
-      hits: found.slice(offset, offset + (query.limit ?? 30)).map(({ index, fits }) => {
+      hits: arrange(found, ({ index }) => this.entries[index]!.card, query).slice(offset, offset + (query.limit ?? 30)).map(({ index, fits }) => {
         const { card, tags } = this.entries[index]!;
         return { card, tags, score: fits.length, fits };
       }),
@@ -439,7 +484,7 @@ export class SearchIndex {
     const fitName = fit && this.profiles.get(fit)!.archetype;
     return {
       total: fitting.length,
-      hits: fitting.slice(offset, offset + (query.limit ?? 30)).map(({ index, answer, stops }) => {
+      hits: arrange(fitting, ({ index }) => this.entries[index]!.card, query).slice(offset, offset + (query.limit ?? 30)).map(({ index, answer, stops }) => {
         const { card, tags } = this.entries[index]!;
         return {
           card,
@@ -470,7 +515,7 @@ export class SearchIndex {
     const offset = query.offset ?? 0;
     return {
       total: fitting.length,
-      hits: fitting.slice(offset, offset + (query.limit ?? 30)).map(({ index, fits }) => {
+      hits: arrange(fitting, ({ index }) => this.entries[index]!.card, query).slice(offset, offset + (query.limit ?? 30)).map(({ index, fits }) => {
         const { card, tags } = this.entries[index]!;
         return { card, tags, score: fits.length, fits: fits.map((at) => hooks[at]!.hook.label) };
       }),

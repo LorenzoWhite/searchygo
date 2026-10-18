@@ -1002,6 +1002,37 @@ select:disabled {
   font-size: var(--text-sm);
 }
 
+/* The order of the results, kept beside the choice of view at the end of the bar. */
+.sorter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-inline-start: auto;
+}
+
+.sorter label {
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--color-gold);
+}
+
+.sorter select {
+  width: auto;
+  height: 2.25rem;
+  padding-inline: var(--space-sm) var(--space-xl);
+  font-size: var(--text-sm);
+}
+
+.sorter__dir {
+  height: 2.25rem;
+  min-height: 0;
+  padding-inline: var(--space-sm);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+
 .segments--view .segment {
   padding-inline: var(--space-sm);
 }

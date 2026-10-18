@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { SORTS, SORT_DIRECTIONS, type SortBy, type SortDirection } from "@/lib/sort";
 import { ATTRIBUTES, FORMATS, MD_RARITIES, MD_RARITY_NAMES, MONSTER_TYPES, type Card, type CardKind, type MasterDuelRarity } from "@/lib/card";
 import { copiesOf, deckSize, homeSection, whyNot } from "@/lib/deck";
 import { ROLES } from "@/lib/vocabulary";
@@ -28,6 +29,10 @@ interface Filters {
   /** First released in or between these years. */
   from: string;
   to: string;
+  /** How results are ordered (see SORTS); "" is best match. */
+  sort: string;
+  /** "asc" or "desc"; "" is the order's natural direction. */
+  dir: string;
   /** "1" matches the words against card text instead of reading them as an effect. */
   literal: string;
   /** What to exclude from the results, as searches of their own, separated by "|". */
@@ -47,11 +52,29 @@ const NO_FILTERS: Filters = {
   format: "",
   from: "",
   to: "",
+  sort: "",
+  dir: "",
   literal: "",
   not: "",
 };
-/** The filters that belong to the search box rather than to the filter controls, and outlast "Clear filters". */
-const SEARCH_OWNED = ["literal", "not"] as const satisfies readonly (keyof Filters)[];
+/**
+ * What belongs to the search box or the results rather than to the filter controls: it outlasts
+ * "Clear filters" and is not counted as a filter.
+ */
+const SEARCH_OWNED = ["literal", "not", "sort", "dir"] as const satisfies readonly (keyof Filters)[];
+
+const SORT_LABELS: Record<SortBy, string> = {
+  match: "Best match",
+  name: "Name",
+  atk: "ATK",
+  def: "DEF",
+  level: "Level, Rank or Link",
+  date: "Release date",
+  popular: "Most viewed",
+};
+/** Each direction said for what is being sorted. */
+const directionLabel = (by: SortBy, dir: SortDirection) =>
+  by === "name" ? (dir === "asc" ? "A → Z" : "Z → A") : by === "date" ? (dir === "asc" ? "Oldest first" : "Newest first") : dir === "asc" ? "Low → high" : "High → low";
 const MAX_EXCLUSIONS = 8;
 const VIEW_KEY = "searchygo:view";
 
@@ -146,6 +169,8 @@ function fromParams(params: URLSearchParams): { text: string; filters: Filters }
       format: FORMATS.find((format) => format === params.get("format")) ?? "",
       from: year(params.get("from")),
       to: year(params.get("to")),
+      sort: SORTS.find((sort) => sort !== "match" && sort === params.get("sort")) ?? "",
+      dir: params.get("dir") === "asc" || params.get("dir") === "desc" ? params.get("dir")! : "",
       literal: params.get("literal") === "1" ? "1" : "",
       not: (params.get("not") ?? "")
         .split("|")
@@ -322,7 +347,8 @@ export function SearchApp() {
   const setKind = (kind: Filters["kind"]) =>
     // Attribute, Type and Level only exist on monsters, so they are dropped for Spells and Traps.
     setFilters((current) => (kind === "spell" || kind === "trap" ? { ...current, ...MONSTER_ONLY, kind } : { ...current, kind }));
-  const clearFilters = () => setFilters((current) => ({ ...NO_FILTERS, literal: current.literal, not: current.not }));
+  const clearFilters = () =>
+    setFilters((current) => ({ ...NO_FILTERS, ...Object.fromEntries(SEARCH_OWNED.map((name) => [name, current[name]])) }));
 
   const exclusions = exclusionsOf(filters);
   const exclude = (entry: string) => {
@@ -798,13 +824,40 @@ export function SearchApp() {
                     <>
                       {!hasQuery && "All "}
                       <RollingNumber value={data.total} /> {data.total === 1 ? "card" : "cards"}
-                      {!hasQuery && ", most viewed first"}
+                      {!hasQuery && !filters.sort && ", most viewed first"}
                     </>
                   )}
                   {reading && !reading.matched && data.total > 0 && (
                     <span className="results__note"> · no card fits that reading, so these match the words instead</span>
                   )}
                 </p>
+                {data.total > 1 && (
+                  <div className="sorter">
+                    <label htmlFor="sort">Sort</label>
+                    <select id="sort" value={filters.sort || "match"} onChange={(event) => setFilter({ sort: event.target.value === "match" ? "" : event.target.value, dir: "" })}>
+                      {SORTS.map((sort) => (
+                        <option key={sort} value={sort}>
+                          {SORT_LABELS[sort]}
+                        </option>
+                      ))}
+                    </select>
+                    {filters.sort && (() => {
+                      const by = filters.sort as SortBy;
+                      const dir = (filters.dir || SORT_DIRECTIONS[by]) as SortDirection;
+                      const other: SortDirection = dir === "asc" ? "desc" : "asc";
+                      return (
+                        <button
+                          type="button"
+                          className="button sorter__dir"
+                          aria-label={`Order: ${directionLabel(by, dir)}. Switch to ${directionLabel(by, other)}`}
+                          onClick={() => setFilter({ dir: other === SORT_DIRECTIONS[by] ? "" : other })}
+                        >
+                          {directionLabel(by, dir)}
+                        </button>
+                      );
+                    })()}
+                  </div>
+                )}
                 {data.total > 0 && (
                   <div className="segments segments--view" role="group" aria-label="Show results as">
                     <button type="button" className="segment" aria-pressed={view === "gallery"} onClick={() => chooseView("gallery")}>

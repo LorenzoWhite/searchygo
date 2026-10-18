@@ -71,7 +71,8 @@ describe (`PLAYER_TERMS` in `src/lib/query.ts`), so they work like any other eff
 used, which every card's tags record. "self mill" and "self-banish" mean doing it to your own cards; "Normal
 Monster support" (or Tuner, Ritual, Pendulum… support) finds cards whose own text names that kind of
 card; "generic" leaves out effects locked to an archetype or a named card; and "synergy with X and Y"
-finds cards that work with both decks, starting with the cards from one deck that fit the other.
+finds cards that work with both decks, starting with the cards from one deck that fit the other. Results
+can be sorted by name, ATK, DEF, Level, release date or popularity (`sort` and `dir` in the address).
 
 Cards can also be filtered by format (TCG, OCG, Master Duel, Duel Links, Speed Duel, GOAT, OCG GOAT,
 Edison, Common Charity, as YGOPRODeck lists them) and by the year they first came out: in the OCG

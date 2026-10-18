@@ -92,7 +92,14 @@ export function cardNamedLike(cards: readonly Card[]): (name: string) => Card | 
       const distance = editDistance(plain, other);
       if (distance <= allowed && (!best || distance < best.distance)) best = { card, distance };
     }
-    return best?.card;
+    if (best) return best.card;
+    // A slip in the last word ("Ghost Belle & Haunted Doll", "Rivalry of Warriors") still points to one
+    // card when every word before it begins only that card's name.
+    const words = name.toLowerCase().split(/\s+/).filter(Boolean);
+    if (words.length < 3) return undefined;
+    const opening = plainName(words.slice(0, -1).join(" "));
+    const matches = [...byPlain].filter(([other]) => other.startsWith(opening));
+    return matches.length === 1 ? matches[0]![1] : undefined;
   };
 }
 

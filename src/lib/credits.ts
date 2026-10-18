@@ -95,8 +95,8 @@ export const CREDITS: Credit[] = [
   {
     by: ["@KilatVolk", "@3750gustavo"],
     kind: "idea",
-    what: "Choose how results are sorted: by name, ATK/DEF, Level or release date",
-    status: "planned",
+    what: "Choose how results are sorted: by name, ATK/DEF, Level, release date or popularity",
+    status: "added",
     date: "2026-10-18",
   },
   {

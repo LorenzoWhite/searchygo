@@ -86,7 +86,6 @@ themselves, with nothing to run by hand.
   Branded, Kashtira…".
 - **Report a problem.** A link on each card or search to say a result is wrong.
 - **Shareable deck links.** Open a deck from a link, without importing a file.
-- **Result sorting.** By name, ATK/DEF, Level, release date.
 - **Failed-search log.** Note searches that find nothing or get read badly, to see what to teach the
   reader next.
 - **Re-profile synergy hooks** that still find nothing (77 hooks across the profiles).
@@ -99,6 +98,9 @@ themselves, with nothing to run by hand.
 
 ## Done
 
+- Result sorting: name, ATK, DEF, Level/Rank/Link, release date, popularity, either direction
+- Credits page and YouTube feedback triage
+- Two-deck synergy, "generic", "self mill" and kind-of-card support searches
 - Announced-but-unreleased cards kept (anything with a Konami ID, e.g. "Mind Scan")
 - GY / hand / banished effect searches ("Spells with GY effects")
 - Player terms: recruiters, floaters, tutors; format and release-year filters

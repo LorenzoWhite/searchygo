@@ -4,6 +4,7 @@ import { ATTRIBUTES, CARD_KINDS, FORMATS, MD_RARITIES, MONSTER_TYPES, SUBTYPES }
 import { getSearchIndex } from "@/lib/data";
 import { ROLES } from "@/lib/tags";
 import type { SearchQuery } from "@/lib/search";
+import { SORTS } from "@/lib/sort";
 
 const PAGE_SIZE = 30;
 const MAX_QUERY_LENGTH = 200;
@@ -52,6 +53,8 @@ export async function GET(request: NextRequest) {
     levelMax: integer(params, "levelMax"),
     format: list(params, "format", FORMATS)[0],
     ...years(integer(params, "from"), integer(params, "to")),
+    sort: list(params, "sort", SORTS)[0],
+    dir: list(params, "dir", ["asc", "desc"] as const)[0],
     mdRarities: list(params, "rarity", MD_RARITIES),
     genesysMin: integer(params, "genesysMin"),
     genesysMax: integer(params, "genesysMax"),
