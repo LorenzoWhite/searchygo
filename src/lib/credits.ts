@@ -89,8 +89,8 @@ export const CREDITS: Credit[] = [
     by: ["@joshuasison3301"],
     kind: "bug",
     what: "Droll & Lock Bird is Limited on the October 19 list",
-    status: "coming",
-    date: "2026-10-18",
+    status: "fixed",
+    date: "2026-10-19",
   },
   {
     by: ["@KilatVolk", "@3750gustavo"],

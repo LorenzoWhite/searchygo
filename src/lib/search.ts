@@ -480,6 +480,13 @@ export class SearchIndex {
       fitsOf = new Map(partners.map(({ index, fits }) => [index, fits.map((at) => hooks[at]!.hook.label)]));
     }
     const fitting = counters.filter(({ index }) => matchesFilters(this.entries[index]!) && (!fitsOf || fitsOf.has(index)));
+    // An answer you cannot play is little help: cards Forbidden on the list that applies (the OCG's
+    // for an OCG format, otherwise the TCG's) keep their order but come after the legal ones.
+    const forbidden = ({ index }: (typeof fitting)[number]) => {
+      const card = this.entries[index]!.card;
+      return (query.format?.startsWith("OCG") ? card.banOcg : card.banTcg) === "Forbidden";
+    };
+    fitting.sort((a, b) => Number(forbidden(a)) - Number(forbidden(b)));
     const offset = query.offset ?? 0;
     const fitName = fit && this.profiles.get(fit)!.archetype;
     return {
