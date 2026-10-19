@@ -32,6 +32,8 @@ interface Filters {
   defMax: string;
   /** A TCG set the card was printed in, by code or name. */
   set: string;
+  /** "main" or "extra": Main Deck cards or Extra Deck monsters. */
+  deck: string;
   /** A format the card is legal in (see FORMATS). */
   format: string;
   /** First released in or between these years. */
@@ -62,6 +64,7 @@ const NO_FILTERS: Filters = {
   defMin: "",
   defMax: "",
   set: "",
+  deck: "",
   format: "",
   from: "",
   to: "",
@@ -185,6 +188,7 @@ function fromParams(params: URLSearchParams): { text: string; filters: Filters }
       defMin: stat(params.get("defMin")),
       defMax: stat(params.get("defMax")),
       set: (params.get("set") ?? "").slice(0, 80),
+      deck: params.get("deck") === "main" || params.get("deck") === "extra" ? params.get("deck")! : "",
       format: FORMATS.find((format) => format === params.get("format")) ?? "",
       from: year(params.get("from")),
       to: year(params.get("to")),
@@ -432,7 +436,7 @@ export function SearchApp() {
   const hasFilters = Object.entries(filters).some(([name, value]) => !(SEARCH_OWNED as readonly string[]).includes(name) && value);
   const hasQuery = hasFilters || exclusions.length > 0 || text.trim() !== "";
   // Counted as a person would count them: a Level range or a Genesys bound is one filter, not two.
-  const filtersOn = [filters.kind, filters.role, filters.attribute, filters.type, filters.levelMin || filters.levelMax, filters.rarity, filters.genesysMin || filters.genesysMax, filters.format, filters.from || filters.to, filters.atkMin || filters.atkMax, filters.defMin || filters.defMax, filters.set].filter(Boolean).length;
+  const filtersOn = [filters.kind, filters.role, filters.attribute, filters.type, filters.levelMin || filters.levelMax, filters.rarity, filters.genesysMin || filters.genesysMax, filters.format, filters.from || filters.to, filters.atkMin || filters.atkMax, filters.defMin || filters.defMax, filters.set, filters.deck].filter(Boolean).length;
   const remaining = data ? data.total - data.results.length : 0;
   const reading = status === "error" ? undefined : data?.reading;
 
@@ -599,6 +603,23 @@ export function SearchApp() {
                       aria-pressed={filters.kind === value}
                       onClick={() => setKind(value)}
                     >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+
+              <fieldset className="field">
+                <legend>Deck</legend>
+                <div className="segments segments--deck">
+                  {(
+                    [
+                      ["", "Any"],
+                      ["main", "Main Deck"],
+                      ["extra", "Extra Deck"],
+                    ] as const
+                  ).map(([value, label]) => (
+                    <button key={label} type="button" className="segment" aria-pressed={filters.deck === value} onClick={() => setFilter({ deck: value })}>
                       {label}
                     </button>
                   ))}

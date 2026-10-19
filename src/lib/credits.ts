@@ -134,4 +134,25 @@ export const CREDITS: Credit[] = [
     status: "planned",
     date: "2026-10-19",
   },
+  {
+    by: ["@megaagentj2248"],
+    kind: "bug",
+    what: "Searchers locked to cards that mention a name (Wishes for Eyes of Blue) came up in every “search a Spell” search",
+    status: "fixed",
+    date: "2026-10-19",
+  },
+  {
+    by: ["@Badbufon"],
+    kind: "bug",
+    what: "“your opponent adds a card to their hand” and “opponent gains LP” did not read who acts",
+    status: "fixed",
+    date: "2026-10-19",
+  },
+  {
+    by: ["@shadow306k"],
+    kind: "idea",
+    what: "Filter to Main Deck or Extra Deck monsters, and “Extra Deck EARTH Warrior monsters” in searches",
+    status: "added",
+    date: "2026-10-19",
+  },
 ];

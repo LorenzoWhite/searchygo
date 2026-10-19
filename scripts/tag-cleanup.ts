@@ -6,6 +6,22 @@
 import { ATTRIBUTES, CARD_KINDS, MONSTER_TYPES, SUBTYPES, type Card } from "../src/lib/card.ts";
 import { ROLES, type CardFilter, type CardTags, type GameEvent } from "../src/lib/tags.ts";
 
+/**
+ * Commands that move a chosen card, as card text gives them ("Add 1", "Special Summon up to 2", "Set
+ * 1"), and the verbs they are tagged as. A passive "is Special Summoned by" is not a command.
+ */
+const COMMAND = /\b(Add|Special Summon|Send|Set|Place|Banish|Shuffle|Return) (?:up to |any number of |\d+ |a |an )/gi;
+const COMMAND_VERBS: Record<string, GameEvent["verb"]> = {
+  add: "add_to_hand",
+  "special summon": "special_summon",
+  send: "send_to_gy",
+  set: "set_spell_trap",
+  place: "place_on_field",
+  banish: "banish",
+  shuffle: "return_to_deck",
+  return: "return_to_deck",
+};
+
 export function cleanTags(card: Card, tags: CardTags): CardTags {
   const text = `${card.pendulumText ?? ""}\n${card.text}`;
   const quoted = (name: string) => text.includes(`"${name}"`);
@@ -17,7 +33,28 @@ export function cleanTags(card: Card, tags: CardTags): CardTags {
     archetypes: filter.archetypes.filter(quoted),
     names: filter.names.filter(quoted),
   });
-  const cleanEvent = (event: GameEvent): GameEvent => ({ ...event, what: cleanFilter(event.what) });
+  const cleanEvent = (event: GameEvent): GameEvent => restoreMention({ ...event, what: cleanFilter(event.what) });
+
+  // "add 1 Spell/Trap that mentions "Blue-Eyes White Dragon"": a condition the tagging sometimes drops,
+  // which turns a card-locked searcher into one that seems to fetch any Spell/Trap. Each such phrase
+  // belongs to the nearest command before it in the same sentence ("Special Summon 1 Level 7 or lower
+  // monster that mentions…"), so it goes back on an effect with that verb, unless it already names
+  // what it can take.
+  const mentions = [...text.matchAll(/(?:that|which) mentions? "([^"]+)"/g)].flatMap((match) => {
+    const clause = text.slice(0, match.index).split(/[.;:]/).pop()!;
+    const commands = [...clause.matchAll(COMMAND)];
+    const command = commands.at(-1);
+    if (!command) return [];
+    const noun = clause.slice(command.index! + command[0].length);
+    return [{ verb: COMMAND_VERBS[command[1]!.toLowerCase()]!, kinds: CARD_KINDS.filter((kind) => new RegExp(`\\b${kind}`, "i").test(noun.split(",").pop()!)), name: match[1]! }];
+  });
+  function restoreMention(event: GameEvent): GameEvent {
+    const { what } = event;
+    if (what.this_card || what.names.length || what.archetypes.length || /mention/i.test(what.other)) return event;
+    const fits = mentions.find(({ verb, kinds }) => verb === event.verb && (!kinds.length || !what.kinds.length || what.kinds.some((kind) => kinds.includes(kind))));
+    if (!fits) return event;
+    return { ...event, what: { ...what, other: [what.other, `mentions "${fits.name}"`].filter(Boolean).join(", ") } };
+  }
 
   return {
     ...tags,

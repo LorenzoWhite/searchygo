@@ -57,6 +57,7 @@ export async function GET(request: NextRequest) {
     defMax: integer(params, "defMax"),
     format: list(params, "format", FORMATS)[0],
     set: params.get("set")?.slice(0, 80) || undefined,
+    deck: list(params, "deck", ["main", "extra"] as const)[0],
     related: integer(params, "related"),
     ...years(integer(params, "from"), integer(params, "to")),
     sort: list(params, "sort", SORTS)[0],

@@ -76,7 +76,8 @@ can be sorted by name, ATK, DEF, Level, release date or popularity (`sort` and `
 are understood in searches ("2400 ATK 1000 DEF", "0 DEF", "ATK 2000 or more", "ATK equals DEF"),
 including what an effect searches or summons ("search a monster with 300 ATK and 200 DEF"). The
 advanced search also filters by ATK, DEF and the TCG set a card was printed in (`data/sets.json`,
-built by `pnpm cards:prepare` from YGOPRODeck's set list). Experimental, and on only where
+built by `pnpm cards:prepare` from YGOPRODeck's set list). "Extra Deck monsters" and "Main Deck monsters" are
+understood too, and the advanced search can limit results to either Deck. Experimental, and on only where
 `NEXT_PUBLIC_SEARCHYGO_RELATED=1` is set (see `src/lib/features.ts`): a "Related cards" button on every
 card, showing the cards that name it, the cards it names, the rest of its archetype and cards that
 support that archetype (also typed as "related to Dark Magician", or `?related=<passcode>`).

@@ -121,7 +121,13 @@ function normalize(raw: RawCard): Card {
 
   const aliases = (raw.card_images ?? []).map((image) => image.id).filter((id) => id !== raw.id);
   if (aliases.length) card.aliases = aliases;
-  if (raw.archetype) card.archetype = raw.archetype;
+  if (raw.archetype) {
+    // A stray wiki template line ("| supports_archetypes    Power Patron") has turned up as an archetype;
+    // the archetype is the name at its end.
+    const template = /^\|\s*\w+\s+(.+)$/.exec(raw.archetype);
+    if (template) warnings.push(`${raw.name}: archetype "${raw.archetype}" read as "${template[1]}"`);
+    card.archetype = template ? template[1]!.trim() : raw.archetype;
+  }
   const banStatus = (status: string | undefined): BanStatus | undefined => {
     if (status && !(status in BAN_LIMITS)) throw new Error(`${raw.name}: unknown Forbidden & Limited status ${status}`);
     return status as BanStatus | undefined;

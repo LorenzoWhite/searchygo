@@ -23,6 +23,8 @@ export interface ObjectQuery {
   levelMax?: number;
   /** ATK and DEF: "2400 ATK 1000 DEF", "0 DEF", "ATK 2000 or more". */
   stats?: StatQuery;
+  /** Which Deck the card goes in: "Extra Deck monsters" are Fusion, Synchro, Xyz and Link Monsters. */
+  deck?: "main" | "extra";
 }
 
 export interface EventQuery {
@@ -73,7 +75,8 @@ export const isEmptyObject = (object: ObjectQuery) =>
   !object.archetypes.length &&
   object.levelMin === undefined &&
   object.levelMax === undefined &&
-  isEmptyStats(object.stats);
+  isEmptyStats(object.stats) &&
+  !object.deck;
 
 // --- Phrase rules -----------------------------------------------------------------------------
 
@@ -219,6 +222,12 @@ const LEVEL_RULES: [RegExp, (n: number) => Pick<ObjectQuery, "levelMin" | "level
   [/\b(?:level|lvl?\.?|rank|link) ?(\d{1,2})\b/, (n) => ({ levelMin: n, levelMax: n })],
 ];
 
+/** "Extra Deck monsters", "ED monsters", "Main Deck monsters": a card's Deck, said before what it is. */
+const DECK_RULES: [RegExp, "main" | "extra"][] = [
+  [/\b(?:extra deck|ed)(?= (?:[\w-]+ ){0,3}(?:monsters?|cards?)\b)/, "extra"],
+  [/\bmain deck(?= (?:[\w-]+ ){0,3}(?:monsters?|cards?)\b)/, "main"],
+];
+
 const KIND_RULES: [RegExp, CardKind[]][] = [
   [/\bbackrow\b|\bs\/t\b|\bspells? (?:and|or|\/) ?traps?\b/, ["spell", "trap"]],
   [/\bmonsters?\b/, ["monster"]],
@@ -272,13 +281,13 @@ const AMBIGUOUS_ARCHETYPES = new Set(
 const FILLER = new Set(
   `a an and any all are as at be by can card cards do does effect effects find for from get gets give gives has have i in is
    it its let lets me my of on one or own show some that the their them these they this those to up use uses using want
-   which who whose with you your 1 been being was were when if into onto also each every than then while work works`.split(/\s+/),
+   which who whose with you your 1 been being was were when if into onto also each every than then while work works mention mentions mentioning`.split(/\s+/),
 );
 
 // --- Interpreter ------------------------------------------------------------------------------
 
 type MarkType =
-  | "verb" | "role" | "where" | "generic" | "stat" | "from" | "to" | "opponent" | "yours" | "self" | "quick" | "support" | "cue" | "boundary"
+  | "verb" | "role" | "where" | "generic" | "stat" | "deck" | "from" | "to" | "opponent" | "yours" | "self" | "quick" | "support" | "cue" | "boundary"
   | "level" | "kind" | "subtype" | "type" | "attribute" | "archetype";
 
 interface Mark {
@@ -291,6 +300,7 @@ interface Mark {
   opponent?: boolean;
   level?: Pick<ObjectQuery, "levelMin" | "levelMax">;
   stats?: StatQuery;
+  deck?: "main" | "extra";
   kinds?: CardKind[];
   subtype?: Subtype;
   monsterType?: string;
@@ -389,6 +399,7 @@ export function interpret(
   scan(QUICK, () => ({ type: "quick" }));
   for (const { start, end, stats } of statsInSearch(text)) if (free(start, end)) marks.push({ type: "stat", stats, start, end });
   scan(GENERIC, () => ({ type: "generic" }));
+  for (const [pattern, deck] of DECK_RULES) scan(pattern, () => ({ type: "deck", deck }));
   scan(FROM_ZONE, (match) => ({
     type: "from",
     zone: toZone(match[3]!),
@@ -426,6 +437,8 @@ export function interpret(
   /** Where descriptors currently land: the card itself until a verb or cue redirects them. */
   let target: "card" | "does" | "reactsTo" = "card";
   let awaitingTrigger = false;
+  /** "Your opponent" or "you" named before any verb, waiting for the verb it is the subject of. */
+  let subject: Mark | undefined;
   const unused: Mark[] = [];
 
   const targetObject = () => (target === "does" ? does!.object : target === "reactsTo" ? reactsTo!.object : query.card);
@@ -445,6 +458,12 @@ export function interpret(
       case "generic":
         query.generic = true;
         break;
+      case "deck": {
+        const object = targetObject();
+        object.deck = mark.deck;
+        if (mark.deck === "extra" && !object.kinds.includes("monster")) object.kinds.push("monster");
+        break;
+      }
       case "support":
         supporting = true;
         break;
@@ -472,6 +491,12 @@ export function interpret(
           target = "does";
         } else {
           unused.push(mark);
+          break;
+        }
+        if (subject) {
+          targetEvent()!.player ??= subject.type === "opponent" ? "opponent" : "you";
+          unused.splice(unused.indexOf(subject), 1);
+          subject = undefined;
         }
         break;
       }
@@ -494,7 +519,11 @@ export function interpret(
       case "yours": {
         const event = targetEvent();
         if (event) event.player = mark.type === "opponent" ? "opponent" : "you";
-        else unused.push(mark);
+        else {
+          // Said before any verb, it is who acts: "your opponent adds a card to their hand".
+          unused.push(mark);
+          subject = mark;
+        }
         break;
       }
       case "self": {
@@ -655,7 +684,8 @@ function describeObject(object: ObjectQuery): string {
           : "";
   const kinds = [...new Set(object.kinds)].map((kind) => kind[0]!.toUpperCase() + kind.slice(1)).join("/");
   const stats = object.stats ? describeStats(object.stats) : "";
-  return [level, ...object.attributes, ...object.types, ...object.archetypes.map((name) => `"${name}"`), ...object.subtypes.map((subtype) => subtype.replace("_", "-")), kinds, stats]
+  const deck = object.deck === "extra" ? "Extra Deck" : object.deck === "main" ? "Main Deck" : "";
+  return [deck, level, ...object.attributes, ...object.types, ...object.archetypes.map((name) => `"${name}"`), ...object.subtypes.map((subtype) => subtype.replace("_", "-")), kinds, stats]
     .filter(Boolean)
     .join(" ");
 }

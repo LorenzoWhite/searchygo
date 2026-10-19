@@ -6,7 +6,9 @@
  * allows what was asked for, and it matches more specifically when it names the same thing than
  * when it merely does not rule it out: a card that revives WATER monsters ranks above Monster Reborn.
  */
-import type { Card } from "./card.ts";
+import { isExtraDeckCard, type Card } from "./card.ts";
+
+const EXTRA_SUBTYPES = new Set(["fusion", "synchro", "xyz", "link"]);
 import { fitsCardStats, fitsStatedStats, isEmptyStats, statsInText } from "./stats.ts";
 import { isEmptyObject, type EffectQuery, type EventQuery, type ObjectQuery } from "./query.ts";
 import type { CardFilter, CardTags, Effect, GameEvent } from "./tags.ts";
@@ -28,6 +30,13 @@ function matchObject(what: CardFilter, wanted: ObjectQuery): number | null {
   let specific = 0;
   let narrower = false;
 
+  // "Extra Deck monsters": an effect naming only Main Deck kinds of monster cannot reach them, and the reverse.
+  if (wanted.deck && what.subtypes.length) {
+    const extra = what.subtypes.some((subtype) => EXTRA_SUBTYPES.has(subtype));
+    if (extra !== (wanted.deck === "extra")) return null;
+    specific++;
+  }
+
   // Stats live in the tags as words ("1500 or less ATK"); asking for them means the effect must state them.
   if (!isEmptyStats(wanted.stats)) {
     if (!fitsStatedStats(statsInText(what.other), wanted.stats!)) return null;
@@ -48,11 +57,13 @@ function matchObject(what: CardFilter, wanted: ObjectQuery): number | null {
     else return null;
   }
 
-  const named = what.archetypes.length > 0 || what.names.length > 0;
+  // "a Spell/Trap that mentions "Crimson Dragon"" is kept in the tags' words; it names a card all the same.
+  const names = [...what.names, ...[...what.other.matchAll(/mentions? "([^"]+)"/g)].map(([, name]) => name!)];
+  const named = what.archetypes.length > 0 || names.length > 0;
   if (wanted.archetypes.length) {
     if (named) {
       const fits = wanted.archetypes.some(
-        (name) => what.archetypes.some((archetype) => sameArchetype(archetype, name)) || what.names.some((card) => card.toLowerCase().includes(name.toLowerCase())),
+        (name) => what.archetypes.some((archetype) => sameArchetype(archetype, name)) || names.some((card) => card.toLowerCase().includes(name.toLowerCase())),
       );
       if (!fits) return null;
       specific += 2;
@@ -73,7 +84,7 @@ function matchObject(what: CardFilter, wanted: ObjectQuery): number | null {
 
 function matchEvent(event: GameEvent, wanted: EventQuery): number | null {
   if (!wanted.verbs.includes(event.verb)) return null;
-  if (wanted.generic && (event.what.archetypes.length || event.what.names.length)) return null;
+  if (wanted.generic && (event.what.archetypes.length || event.what.names.length || /mentions? "/.test(event.what.other))) return null;
   // No zone given means none was stated: a zoneless verb, or the card's own event ("If this card is
   // Tributed"), which happens wherever the card is.
   const anywhere = !event.from.length && (ZONELESS.has(event.verb) || (wanted.self && event.what.this_card));
@@ -118,6 +129,7 @@ function matchEffects(effects: Effect[], query: EffectQuery): number | null {
 function matchCardItself(card: Card, wanted: ObjectQuery): boolean {
   if (wanted.kinds.length && !wanted.kinds.includes(card.kind)) return false;
   if (!isEmptyStats(wanted.stats) && !fitsCardStats(card, wanted.stats!)) return false;
+  if (wanted.deck && isExtraDeckCard(card) !== (wanted.deck === "extra")) return false;
   if (!wanted.subtypes.every((subtype) => card.subtypes.includes(subtype))) return false;
   if (wanted.types.length && !(card.monsterType && wanted.types.includes(card.monsterType))) return false;
   if (wanted.attributes.length && !(card.attribute && wanted.attributes.includes(card.attribute))) return false;

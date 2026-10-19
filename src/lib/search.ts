@@ -5,7 +5,7 @@
  * the words say nothing the tags can answer, or nothing matches, it falls back to BM25 relevance
  * over card names, text and tag summaries.
  */
-import { releaseDate, type Attribute, type Card, type CardKind, type MasterDuelRarity, type Subtype } from "./card.ts";
+import { isExtraDeckCard, releaseDate, type Attribute, type Card, type CardKind, type MasterDuelRarity, type Subtype } from "./card.ts";
 import { matchCard } from "./effect-match.ts";
 import { buildArchetypeMatcher, interpret, type EffectQuery } from "./query.ts";
 import { findCounters, type CounterProfile, type Timing } from "./counters.ts";
@@ -34,6 +34,8 @@ export interface SearchQuery {
   format?: string;
   /** A TCG set the card was printed in, by code ("RA04") or name. */
   set?: string;
+  /** Main Deck cards, or Extra Deck monsters. */
+  deck?: "main" | "extra";
   /** Show the cards related to this one (passcode), instead of reading the text. */
   related?: number;
   /** First released in or between these years (see releaseDate). */
@@ -812,6 +814,7 @@ function buildFilter(query: SearchQuery, inSet?: (card: Card) => boolean): (entr
     });
   }
   if (inSet) checks.push(({ card }) => inSet(card));
+  if (query.deck) checks.push(({ card }) => isExtraDeckCard(card) === (query.deck === "extra"));
   if (mdRarities?.length) checks.push(({ card }) => !!card.mdRarity && mdRarities.includes(card.mdRarity));
   if (genesysMin != null || genesysMax != null) {
     checks.push(({ card: { genesysPoints: points } }) => points != null && points >= (genesysMin ?? 0) && points <= (genesysMax ?? Infinity));
