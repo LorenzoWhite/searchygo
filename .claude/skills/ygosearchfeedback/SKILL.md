@@ -1,5 +1,5 @@
 ---
-name: feedback
+name: ygosearchfeedback
 description: Go through new YouTube comments about Search YGO — fetch them, sort them into bugs, requests and questions, check each report against the live site, and propose fixes for the owner to approve. Use when asked to "check feedback", "look at the comments", or similar.
 ---
 
@@ -42,7 +42,9 @@ owner's go-ahead on that item.**
 6. **Record.** Once the owner has decided, mark the comments so they are not raised again:
    `pnpm feedback:fetch --handle <id,id,...> --status fixed|planned|answered|noted|declined --note "..."`.
    Use `noted` for praise and chatter, `planned` for items put on the roadmap, `fixed` once the fix is
-   live. A comment edited after it was handled comes back on its own.
+   live. A comment edited after it was handled comes back on its own. Pure praise and chatter with no
+   request or question in it can be marked `noted` straight away, without asking (the owner's standing
+   wish); say how many were.
 
 7. **Credit.** Everyone whose bug report or suggestion leads to a change is credited on the site's
    /credits page, from `src/lib/credits.ts`. Add an entry when an item is approved (`coming`, or

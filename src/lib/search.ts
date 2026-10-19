@@ -10,6 +10,8 @@ import { matchCard } from "./effect-match.ts";
 import { buildArchetypeMatcher, interpret, type EffectQuery } from "./query.ts";
 import { findCounters, type CounterProfile, type Timing } from "./counters.ts";
 import { SORT_DIRECTIONS, type SortBy, type SortDirection } from "./sort.ts";
+import { setsMatching, type SetsFile } from "./sets.ts";
+import { fitsCardStats } from "./stats.ts";
 import { belongsTo, findPartners, type ArchetypeProfile } from "./synergy.ts";
 import type { CardTags } from "./tags.ts";
 import { tokenize } from "./text.ts";
@@ -25,7 +27,13 @@ export interface SearchQuery {
   roles?: CardTags["roles"];
   levelMin?: number;
   levelMax?: number;
+  atkMin?: number;
+  atkMax?: number;
+  defMin?: number;
+  defMax?: number;
   format?: string;
+  /** A TCG set the card was printed in, by code ("RA04") or name. */
+  set?: string;
   /** First released in or between these years (see releaseDate). */
   yearFrom?: number;
   yearTo?: number;
@@ -242,6 +250,7 @@ export class SearchIndex {
     tagsById: Map<number, CardTags>,
     profiles: ReadonlyMap<string, ArchetypeProfile> = new Map(),
     counterProfiles: ReadonlyMap<string, CounterProfile> = new Map(),
+    readonly sets: SetsFile = { sets: [], cards: {} },
   ) {
     for (const [archetype, profile] of profiles) this.profiles.set(archetype.toLowerCase(), { archetype, profile });
     for (const [archetype, profile] of counterProfiles) this.counterProfiles.set(archetype.toLowerCase(), { archetype, profile });
@@ -329,7 +338,8 @@ export class SearchIndex {
   }
 
   private find(query: SearchQuery, excluded: ((entry: Entry) => boolean)[]): SearchResult {
-    const passes = buildFilter(query);
+    const inSets = query.set ? setsMatching(this.sets.sets, query.set) : undefined;
+    const passes = buildFilter(query, inSets && ((card) => (this.sets.cards[card.id] ?? []).some((index) => inSets.has(index))));
     const matchesFilters = (entry: Entry) => passes(entry) && !excluded.some((covers) => covers(entry));
     const text = query.text ?? "";
     const page = (scored: Scored[], reading?: SearchResult["reading"]): SearchResult => {
@@ -631,9 +641,9 @@ export class SearchIndex {
   }
 }
 
-function buildFilter(query: SearchQuery): (entry: Entry) => boolean {
+function buildFilter(query: SearchQuery, inSet?: (card: Card) => boolean): (entry: Entry) => boolean {
   const checks: ((entry: Entry) => boolean)[] = [];
-  const { kinds, attributes, monsterTypes, subtypes, roles, levelMin, levelMax, format, yearFrom, yearTo, mdRarities, genesysMin, genesysMax } = query;
+  const { kinds, attributes, monsterTypes, subtypes, roles, levelMin, levelMax, atkMin, atkMax, defMin, defMax, format, yearFrom, yearTo, mdRarities, genesysMin, genesysMax } = query;
 
   if (kinds?.length) checks.push(({ card }) => kinds.includes(card.kind));
   if (attributes?.length) checks.push(({ card }) => !!card.attribute && attributes.includes(card.attribute));
@@ -647,6 +657,13 @@ function buildFilter(query: SearchQuery): (entry: Entry) => boolean {
       return level != null && level >= (levelMin ?? 0) && level <= (levelMax ?? 13);
     });
   }
+  if (atkMin != null || atkMax != null || defMin != null || defMax != null) {
+    const stats = {
+      ...(atkMin != null || atkMax != null ? { atk: { min: atkMin, max: atkMax } } : {}),
+      ...(defMin != null || defMax != null ? { def: { min: defMin, max: defMax } } : {}),
+    };
+    checks.push(({ card }) => fitsCardStats(card, stats));
+  }
   if (format) checks.push(({ card }) => card.formats.includes(format));
   if (yearFrom != null || yearTo != null) {
     checks.push(({ card }) => {
@@ -654,6 +671,7 @@ function buildFilter(query: SearchQuery): (entry: Entry) => boolean {
       return year > 0 && year >= (yearFrom ?? 0) && year <= (yearTo ?? Infinity);
     });
   }
+  if (inSet) checks.push(({ card }) => inSet(card));
   if (mdRarities?.length) checks.push(({ card }) => !!card.mdRarity && mdRarities.includes(card.mdRarity));
   if (genesysMin != null || genesysMax != null) {
     checks.push(({ card: { genesysPoints: points } }) => points != null && points >= (genesysMin ?? 0) && points <= (genesysMax ?? Infinity));

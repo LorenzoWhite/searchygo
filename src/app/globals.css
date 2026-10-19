@@ -595,13 +595,44 @@ select {
   align-items: end;
 }
 
-/* On a phone the filters fold away behind one button, so the cards are not a screen and a half down. */
-.filters[data-open="false"] {
+/* Everything beyond the search box: exclusions and filters, folded away until asked for. */
+.advanced {
+  display: grid;
+  gap: var(--space-md);
+}
+
+.advanced[hidden] {
   display: none;
+}
+
+.filters input[type="number"],
+.filters input[type="text"] {
+  width: 100%;
+  min-width: 0;
+  height: var(--control-height);
+  padding-inline: var(--space-sm);
+  border: var(--rule-width) solid var(--color-ink);
+  border-radius: var(--radius-control);
+  background-color: var(--color-parchment);
+  color: var(--color-ink);
+  font: inherit;
+  appearance: textfield;
+}
+
+.filters input::placeholder {
+  color: var(--color-ink-muted);
+  opacity: 1;
+}
+
+.filters input::-webkit-inner-spin-button,
+.filters input::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
 }
 
 .filters > fieldset,
 .filters > .field--wide,
+.filters > .field--set,
 .filters > .button {
   grid-column: 1 / -1;
 }
@@ -2194,10 +2225,6 @@ select:disabled {
 /* --- Wider screens --------------------------------------------------------------------------- */
 
 @media (min-width: 40rem) {
-  .filters__toggle {
-    display: none;
-  }
-
   .zone {
     padding: var(--space-lg);
   }
@@ -2206,14 +2233,14 @@ select:disabled {
     gap: var(--space-lg);
   }
 
-  .filters,
-  .filters[data-open="false"] {
+  .filters {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .filters > fieldset:not(:first-child),
   .filters > .field--wide,
+  .filters > .field--set,
   .filters > .button {
     grid-column: auto;
   }

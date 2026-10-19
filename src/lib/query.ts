@@ -5,6 +5,7 @@
  * same reading, which the site shows back to the user.
  */
 import { ATTRIBUTES, MONSTER_TYPES, type Attribute, type CardKind, type Subtype } from "./card.ts";
+import { describeStats, isEmptyStats, mergeStats, statsInSearch, type StatQuery } from "./stats.ts";
 import type { CardTags, GameEvent } from "./tags.ts";
 
 type Verb = GameEvent["verb"];
@@ -20,6 +21,8 @@ export interface ObjectQuery {
   archetypes: string[];
   levelMin?: number;
   levelMax?: number;
+  /** ATK and DEF: "2400 ATK 1000 DEF", "0 DEF", "ATK 2000 or more". */
+  stats?: StatQuery;
 }
 
 export interface EventQuery {
@@ -69,7 +72,8 @@ export const isEmptyObject = (object: ObjectQuery) =>
   !object.attributes.length &&
   !object.archetypes.length &&
   object.levelMin === undefined &&
-  object.levelMax === undefined;
+  object.levelMax === undefined &&
+  isEmptyStats(object.stats);
 
 // --- Phrase rules -----------------------------------------------------------------------------
 
@@ -268,13 +272,13 @@ const AMBIGUOUS_ARCHETYPES = new Set(
 const FILLER = new Set(
   `a an and any all are as at be by can card cards do does effect effects find for from get gets give gives has have i in is
    it its let lets me my of on one or own show some that the their them these they this those to up use uses using want
-   which who with you your 1 been being was were when if into onto also each every than then while work works`.split(/\s+/),
+   which who whose with you your 1 been being was were when if into onto also each every than then while work works`.split(/\s+/),
 );
 
 // --- Interpreter ------------------------------------------------------------------------------
 
 type MarkType =
-  | "verb" | "role" | "where" | "generic" | "from" | "to" | "opponent" | "yours" | "self" | "quick" | "support" | "cue" | "boundary"
+  | "verb" | "role" | "where" | "generic" | "stat" | "from" | "to" | "opponent" | "yours" | "self" | "quick" | "support" | "cue" | "boundary"
   | "level" | "kind" | "subtype" | "type" | "attribute" | "archetype";
 
 interface Mark {
@@ -286,6 +290,7 @@ interface Mark {
   zone?: Zone;
   opponent?: boolean;
   level?: Pick<ObjectQuery, "levelMin" | "levelMax">;
+  stats?: StatQuery;
   kinds?: CardKind[];
   subtype?: Subtype;
   monsterType?: string;
@@ -382,6 +387,7 @@ export function interpret(
   for (const [pattern, role] of ROLE_RULES) scan(pattern, () => ({ type: "role", role }));
   scan(WORKS_FROM, (match) => ({ type: "where", zone: toZone(match[2] ?? match[3] ?? match[4] ?? match[5] ?? match[1]!.split(" ")[0]!) }));
   scan(QUICK, () => ({ type: "quick" }));
+  for (const { start, end, stats } of statsInSearch(text)) if (free(start, end)) marks.push({ type: "stat", stats, start, end });
   scan(GENERIC, () => ({ type: "generic" }));
   scan(FROM_ZONE, (match) => ({
     type: "from",
@@ -499,6 +505,11 @@ export function interpret(
       case "level":
         Object.assign(targetObject(), mark.level);
         break;
+      case "stat": {
+        const object = targetObject();
+        object.stats = mergeStats(object.stats ?? {}, mark.stats!);
+        break;
+      }
       case "kind":
         targetObject().kinds.push(...mark.kinds!);
         break;
@@ -643,7 +654,8 @@ function describeObject(object: ObjectQuery): string {
           ? `Level ${object.levelMin} or higher`
           : "";
   const kinds = [...new Set(object.kinds)].map((kind) => kind[0]!.toUpperCase() + kind.slice(1)).join("/");
-  return [level, ...object.attributes, ...object.types, ...object.archetypes.map((name) => `"${name}"`), ...object.subtypes.map((subtype) => subtype.replace("_", "-")), kinds]
+  const stats = object.stats ? describeStats(object.stats) : "";
+  return [level, ...object.attributes, ...object.types, ...object.archetypes.map((name) => `"${name}"`), ...object.subtypes.map((subtype) => subtype.replace("_", "-")), kinds, stats]
     .filter(Boolean)
     .join(" ");
 }

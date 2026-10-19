@@ -72,7 +72,11 @@ used, which every card's tags record. "self mill" and "self-banish" mean doing i
 Monster support" (or Tuner, Ritual, Pendulum… support) finds cards whose own text names that kind of
 card; "generic" leaves out effects locked to an archetype or a named card; and "synergy with X and Y"
 finds cards that work with both decks, starting with the cards from one deck that fit the other. Results
-can be sorted by name, ATK, DEF, Level, release date or popularity (`sort` and `dir` in the address).
+can be sorted by name, ATK, DEF, Level, release date or popularity (`sort` and `dir` in the address). Stats
+are understood in searches ("2400 ATK 1000 DEF", "0 DEF", "ATK 2000 or more", "ATK equals DEF"),
+including what an effect searches or summons ("search a monster with 300 ATK and 200 DEF"). The
+advanced search also filters by ATK, DEF and the TCG set a card was printed in (`data/sets.json`,
+built by `pnpm cards:prepare` from YGOPRODeck's set list).
 
 Cards can also be filtered by format (TCG, OCG, Master Duel, Duel Links, Speed Duel, GOAT, OCG GOAT,
 Edison, Common Charity, as YGOPRODeck lists them) and by the year they first came out: in the OCG

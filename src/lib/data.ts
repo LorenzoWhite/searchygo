@@ -4,6 +4,7 @@ import path from "node:path";
 import type { Card } from "./card.ts";
 import { SearchIndex } from "./search.ts";
 import type { CounterProfile, CounteredArchetype } from "./counters.ts";
+import type { SetsFile } from "./sets.ts";
 import type { ArchetypeProfile, ProfiledArchetype } from "./synergy.ts";
 import type { CardTags, TaggedCard } from "./tags.ts";
 
@@ -42,7 +43,10 @@ async function load(): Promise<SearchIndex> {
     }
   }
 
-  return new SearchIndex(cards, tagsById, profiles, counters);
+  // The sets cards were printed in; without the file the set filter simply finds nothing.
+  const sets = JSON.parse(await fs.readFile(path.join(DATA_DIR, "sets.json"), "utf8").catch(() => '{"sets":[],"cards":{}}')) as SetsFile;
+
+  return new SearchIndex(cards, tagsById, profiles, counters, sets);
 }
 
 let index: Promise<SearchIndex> | undefined;

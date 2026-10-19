@@ -1,6 +1,6 @@
 /**
  * Collects the comments people leave on the videos about Search YGO, so feedback can be gone through
- * in one place (see .claude/skills/feedback/SKILL.md for the routine that uses it).
+ * in one place (see .claude/skills/ygosearchfeedback/SKILL.md for the routine that uses it).
  *
  *   pnpm feedback:fetch                    fetch new and edited comments, then list the ones not yet handled
  *   pnpm feedback:fetch --list             list the unhandled comments without fetching

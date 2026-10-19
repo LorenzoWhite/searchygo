@@ -1,7 +1,7 @@
 /**
  * The people who found bugs in Search YGO or suggested changes to it, shown on /credits. Names are
  * as they appear in the YouTube comments where the feedback was left. The feedback routine
- * (.claude/skills/feedback/SKILL.md) adds an entry whenever something someone raised is planned or done.
+ * (.claude/skills/ygosearchfeedback/SKILL.md) adds an entry whenever something someone raised is planned or done.
  */
 
 export const CREDIT_STATUSES = ["added", "fixed", "coming", "planned"] as const;
@@ -98,5 +98,33 @@ export const CREDITS: Credit[] = [
     what: "Choose how results are sorted: by name, ATK/DEF, Level, release date or popularity",
     status: "added",
     date: "2026-10-18",
+  },
+  {
+    by: ["@pokestar9994"],
+    kind: "idea",
+    what: "Search by stats: “2400 ATK 1000 DEF”, “0 DEF”, “ATK 2000 or more”, plus ATK and DEF filters",
+    status: "added",
+    date: "2026-10-19",
+  },
+  {
+    by: ["@st0rmerc00l8"],
+    kind: "idea",
+    what: "Find cards that search or summon by stats: the Kuriboh searchers (300 ATK/200 DEF), Gizmek (ATK equal to DEF)",
+    status: "added",
+    date: "2026-10-19",
+  },
+  {
+    by: ["@galaxystar6621"],
+    kind: "idea",
+    what: "Filter by the TCG set a card was printed in, by name or code",
+    status: "added",
+    date: "2026-10-19",
+  },
+  {
+    by: ["@FoxyPercival714"],
+    kind: "idea",
+    what: "Card suggestions in the deck builder, based on what the deck already plays",
+    status: "planned",
+    date: "2026-10-19",
   },
 ];

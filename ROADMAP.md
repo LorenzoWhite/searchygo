@@ -86,15 +86,25 @@ themselves, with nothing to run by hand.
 - **Failed-search log.** Note searches that find nothing or get read badly, to see what to teach the
   reader next.
 - **Re-profile synergy hooks** that still find nothing (77 hooks across the profiles).
+- **Deck suggestions in the deck builder.** Suggest cards from what the deck already plays (its
+  archetypes' synergy, its weak points). To brainstorm first: where suggestions appear, how they are
+  ranked, and how they are explained.
+- **Deck data from deck sites.** Use real deck lists for deckbuilding help: which cards decks of an
+  archetype actually play, common tech choices, what is rising. Sources to look at: YGOPRODeck,
+  CardCluster, Master Duel Meta, and Yu-Gi-Oh! meta sites. Before building, check each one's API and
+  terms (some offer an API, others may not allow collecting their pages), ask where needed, credit
+  the source on the site, and cache so their servers are asked rarely.
 - **Learning from real games.** Feed actual game data (replays, deck lists, tournament results) to
   the profiles or a model, so synergy and counter answers reflect how decks are really played,
   including lines and interactions no one has written down. Open: fine-tune a model, or use the data
-  to check and rank the profiles we already make.
+  to check and rank the profiles we already make. Yugipedia's tips pages and decklists are
+  candidate sources; a chat mode for long questions belongs with deep search below.
 - **Connector / deep search.** An MCP endpoint so people can bring their own model, and a live-model
   "deep search" for long questions.
 
 ## Done
 
+- Advanced search panel; search by ATK/DEF; TCG set filter
 - Result sorting: name, ATK, DEF, Level/Rank/Link, release date, popularity, either direction
 - Credits page and YouTube feedback triage
 - Two-deck synergy, "generic", "self mill" and kind-of-card support searches

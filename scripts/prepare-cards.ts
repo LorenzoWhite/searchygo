@@ -1,4 +1,5 @@
 /** Normalizes the raw YGOPRODeck dump (data/raw/cardinfo.json) into data/cards.json. */
+import { existsSync } from "node:fs";
 import fs from "node:fs/promises";
 import {
   ATTRIBUTES,
@@ -13,7 +14,8 @@ import {
   type MasterDuelRarity,
   type Subtype,
 } from "../src/lib/card.ts";
-import { CARDS_PATH, RAW_CARDS_PATH } from "./paths.ts";
+import type { SetEntry, SetsFile } from "../src/lib/sets.ts";
+import { CARDS_PATH, RAW_CARDS_PATH, RAW_SETS_PATH, SETS_PATH } from "./paths.ts";
 
 interface RawCard {
   id: number;
@@ -36,6 +38,7 @@ interface RawCard {
   archetype?: string;
   ygoprodeck_url: string;
   card_images?: { id: number }[];
+  card_sets?: { set_name: string; set_code: string }[];
   banlist_info?: { ban_tcg?: string; ban_ocg?: string };
   misc_info?: {
     views?: number;
@@ -148,6 +151,35 @@ const cards = raw.data
   .sort((a, b) => a.id - b.id);
 
 await fs.writeFile(CARDS_PATH, JSON.stringify(cards));
+
+// --- Sets: which TCG sets each card was printed in, kept apart from the cards so search results stay small.
+const setInfo = new Map<string, { code: string; date?: string }>();
+if (existsSync(RAW_SETS_PATH)) {
+  for (const set of JSON.parse(await fs.readFile(RAW_SETS_PATH, "utf8")) as { set_name: string; set_code: string; tcg_date?: string }[]) {
+    setInfo.set(set.set_name, { code: set.set_code, date: set.tcg_date });
+  }
+}
+const kept = new Set(cards.map((card) => card.id));
+const setNames = new Map<string, number>();
+const setsOfCard: Record<number, number[]> = {};
+const setList: SetEntry[] = [];
+for (const card of raw.data) {
+  if (!kept.has(card.id)) continue;
+  const indexes = new Set<number>();
+  for (const printing of card.card_sets ?? []) {
+    let index = setNames.get(printing.set_name);
+    if (index === undefined) {
+      const info = setInfo.get(printing.set_name);
+      index = setList.push({ name: printing.set_name, code: info?.code ?? printing.set_code.split("-")[0]!, date: info?.date, cards: 0 }) - 1;
+      setNames.set(printing.set_name, index);
+    }
+    indexes.add(index);
+  }
+  for (const index of indexes) setList[index]!.cards++;
+  if (indexes.size) setsOfCard[card.id] = [...indexes];
+}
+await fs.writeFile(SETS_PATH, JSON.stringify({ sets: setList, cards: setsOfCard } satisfies SetsFile));
+console.log(`Wrote ${setList.length} sets to ${SETS_PATH}`);
 
 const byKind = Object.groupBy(cards, (card) => card.kind);
 console.log(

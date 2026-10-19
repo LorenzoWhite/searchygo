@@ -24,6 +24,13 @@ interface Filters {
   rarity: string;
   genesysMin: string;
   genesysMax: string;
+  /** ATK and DEF ranges, as typed. */
+  atkMin: string;
+  atkMax: string;
+  defMin: string;
+  defMax: string;
+  /** A TCG set the card was printed in, by code or name. */
+  set: string;
   /** A format the card is legal in (see FORMATS). */
   format: string;
   /** First released in or between these years. */
@@ -49,6 +56,11 @@ const NO_FILTERS: Filters = {
   rarity: "",
   genesysMin: "",
   genesysMax: "",
+  atkMin: "",
+  atkMax: "",
+  defMin: "",
+  defMax: "",
+  set: "",
   format: "",
   from: "",
   to: "",
@@ -105,6 +117,7 @@ const LEVELS = Array.from({ length: 13 }, (_, i) => String(i + 1));
 /** From the first OCG cards (1999) to next year, for cards announced ahead of release. Newest first. */
 const YEARS = Array.from({ length: new Date().getFullYear() + 2 - 1999 }, (_, i) => String(new Date().getFullYear() + 1 - i));
 const year = (value: string | null) => (value && /^\d{4}$/.test(value) ? value : "");
+const stat = (value: string | null) => (value && /^\d{1,5}$/.test(value) ? value : "");
 const DEBOUNCE_MS = 160;
 const SKELETON_ROWS = 6;
 
@@ -166,6 +179,11 @@ function fromParams(params: URLSearchParams): { text: string; filters: Filters }
       rarity: MD_RARITIES.filter((rarity) => params.get("rarity")?.split(",").includes(rarity)).join(","),
       genesysMin: genesysMax ? "" : points(params.get("genesysMin")),
       genesysMax,
+      atkMin: stat(params.get("atkMin")),
+      atkMax: stat(params.get("atkMax")),
+      defMin: stat(params.get("defMin")),
+      defMax: stat(params.get("defMax")),
+      set: (params.get("set") ?? "").slice(0, 80),
       format: FORMATS.find((format) => format === params.get("format")) ?? "",
       from: year(params.get("from")),
       to: year(params.get("to")),
@@ -220,10 +238,11 @@ export function SearchApp() {
     }
   };
   /** On a phone the filters are folded away until asked for; a wider screen always shows them. */
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  /** TCG sets for the set filter's suggestions, fetched the first time the advanced search opens. */
+  const [setNames, setSetNames] = useState<{ name: string; code: string }[]>([]);
   const [hint, setHint] = useState(0);
   /** Whether the box for adding an exclusion is showing, and what has been typed in it. */
-  const [excluding, setExcluding] = useState(false);
   const [unwanted, setUnwanted] = useState("");
   const excludeRef = useRef<HTMLInputElement>(null);
   const excludedRef = useRef<HTMLUListElement>(null);
@@ -249,6 +268,9 @@ export function SearchApp() {
     setText(initial.text);
     setFilters(initial.filters);
     setGenesysAtLeast(initial.filters.genesysMin !== "");
+    // A shared link with filters set opens the advanced search, so what narrows the results is in view.
+    const owned: readonly string[] = SEARCH_OWNED;
+    if (Object.entries(initial.filters).some(([name, value]) => value && (!owned.includes(name) || name === "not"))) setAdvancedOpen(true);
     setRestored(true);
   }, []);
 
@@ -400,7 +422,7 @@ export function SearchApp() {
   const hasFilters = Object.entries(filters).some(([name, value]) => !(SEARCH_OWNED as readonly string[]).includes(name) && value);
   const hasQuery = hasFilters || exclusions.length > 0 || text.trim() !== "";
   // Counted as a person would count them: a Level range or a Genesys bound is one filter, not two.
-  const filtersOn = [filters.kind, filters.role, filters.attribute, filters.type, filters.levelMin || filters.levelMax, filters.rarity, filters.genesysMin || filters.genesysMax, filters.format, filters.from || filters.to].filter(Boolean).length;
+  const filtersOn = [filters.kind, filters.role, filters.attribute, filters.type, filters.levelMin || filters.levelMax, filters.rarity, filters.genesysMin || filters.genesysMax, filters.format, filters.from || filters.to, filters.atkMin || filters.atkMax, filters.defMin || filters.defMax, filters.set].filter(Boolean).length;
   const remaining = data ? data.total - data.results.length : 0;
   const reading = status === "error" ? undefined : data?.reading;
 
@@ -490,28 +512,30 @@ export function SearchApp() {
               </div>
             </div>
 
-            {/* What else can be done to the search, in one row: leave cards out, and (on a phone) open the filters. */}
+            {/* Everything beyond the search box waits behind one toggle, so the box stays the first thing you see. */}
             <div className="search__tools">
               <button
                 type="button"
-                className="button button--quiet search__tool"
-                aria-expanded={excluding}
-                aria-controls="exclude-entry"
+                className="button advanced__toggle"
+                aria-expanded={advancedOpen}
+                aria-controls="advanced"
                 onClick={() => {
-                  setExcluding((open) => !open);
-                  // The box is focused once it is on the page, so typing can start straight away.
-                  if (!excluding) requestAnimationFrame(() => excludeRef.current?.focus());
+                  setAdvancedOpen((open) => !open);
+                  if (!setNames.length) {
+                    fetch("/api/sets")
+                      .then((response) => (response.ok ? response.json() : { sets: [] }))
+                      .then((body: { sets: { name: string; code: string }[] }) => setSetNames(body.sets))
+                      .catch(() => {});
+                  }
                 }}
               >
-                {excluding ? "Done" : exclusions.length ? "Exclude something else" : "Exclude cards"}
-              </button>
-              <button type="button" className="button filters__toggle" aria-expanded={filtersOpen} aria-controls="filters" onClick={() => setFiltersOpen((open) => !open)}>
-                {filtersOpen ? "Hide filters" : "Filters"}
-                {filtersOn > 0 && ` · ${filtersOn} on`}
+                {advancedOpen ? "Hide advanced search" : "Advanced search"}
+                {filtersOn + exclusions.length > 0 && ` · ${filtersOn + exclusions.length} on`}
               </button>
             </div>
 
-              <div className="exclude__entry" id="exclude-entry" hidden={!excluding} role="group" aria-label="Exclude cards">
+            <div className="advanced" id="advanced" hidden={!advancedOpen}>
+              <div className="exclude__entry" role="group" aria-label="Exclude cards">
                 <label htmlFor="unwanted">Exclude cards that match</label>
                 <div className="exclude__row">
                   <input
@@ -553,8 +577,7 @@ export function SearchApp() {
                 </p>
               </div>
 
-
-            <div className="filters" id="filters" data-open={filtersOpen}>
+            <div className="filters">
               <fieldset className="field">
                 <legend>Card type</legend>
                 <div className="segments segments--kind">
@@ -649,6 +672,34 @@ export function SearchApp() {
                 </fieldset>
               )}
 
+              {monsterFilters &&
+                (["atk", "def"] as const).map((stat) => (
+                  <fieldset className="field" key={stat}>
+                    <legend>{stat.toUpperCase()}</legend>
+                    <div className="range">
+                      {(["Min", "Max"] as const).map((end, at) => {
+                        const key = `${stat}${end}` as "atkMin" | "atkMax" | "defMin" | "defMax";
+                        return (
+                          <Fragment key={end}>
+                            {at === 1 && <span aria-hidden="true">–</span>}
+                            <input
+                              type="number"
+                              inputMode="numeric"
+                              min={0}
+                              max={10000}
+                              step={50}
+                              placeholder={end}
+                              aria-label={`${end === "Min" ? "Lowest" : "Highest"} ${stat.toUpperCase()}`}
+                              value={filters[key]}
+                              onChange={(event) => setFilter({ [key]: event.target.value.replace(/\D/g, "").slice(0, 5) })}
+                            />
+                          </Fragment>
+                        );
+                      })}
+                    </div>
+                  </fieldset>
+                ))}
+
               <div className="field">
                 <label htmlFor="format">Format</label>
                 <select id="format" value={filters.format} onChange={(event) => setFilter({ format: event.target.value })}>
@@ -679,6 +730,28 @@ export function SearchApp() {
                   </select>
                 </div>
               </fieldset>
+
+              <div className="field field--set">
+                <label htmlFor="set">TCG set</label>
+                <input
+                  id="set"
+                  type="text"
+                  list="set-names"
+                  placeholder="Name or code, e.g. RA04"
+                  autoComplete="off"
+                  spellCheck={false}
+                  maxLength={80}
+                  value={filters.set}
+                  onChange={(event) => setFilter({ set: event.target.value })}
+                />
+                <datalist id="set-names">
+                  {setNames.map(({ name, code }) => (
+                    <option key={name} value={name}>
+                      {code}
+                    </option>
+                  ))}
+                </datalist>
+              </div>
 
               <div className="field field--wide" role="group" aria-labelledby="genesys-label">
                 <div className="field__head">
@@ -732,6 +805,7 @@ export function SearchApp() {
                   Clear filters
                 </button>
               )}
+            </div>
             </div>
           </form>
 

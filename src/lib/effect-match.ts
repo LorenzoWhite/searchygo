@@ -7,6 +7,7 @@
  * when it merely does not rule it out: a card that revives WATER monsters ranks above Monster Reborn.
  */
 import type { Card } from "./card.ts";
+import { fitsCardStats, fitsStatedStats, isEmptyStats, statsInText } from "./stats.ts";
 import { isEmptyObject, type EffectQuery, type EventQuery, type ObjectQuery } from "./query.ts";
 import type { CardFilter, CardTags, Effect, GameEvent } from "./tags.ts";
 
@@ -26,6 +27,12 @@ const sameArchetype = (a: string, b: string) => {
 function matchObject(what: CardFilter, wanted: ObjectQuery): number | null {
   let specific = 0;
   let narrower = false;
+
+  // Stats live in the tags as words ("1500 or less ATK"); asking for them means the effect must state them.
+  if (!isEmptyStats(wanted.stats)) {
+    if (!fitsStatedStats(statsInText(what.other), wanted.stats!)) return null;
+    specific++;
+  }
 
   if (wanted.kinds.length && what.kinds.length && !wanted.kinds.some((kind) => what.kinds.includes(kind))) return null;
 
@@ -110,6 +117,7 @@ function matchEffects(effects: Effect[], query: EffectQuery): number | null {
 
 function matchCardItself(card: Card, wanted: ObjectQuery): boolean {
   if (wanted.kinds.length && !wanted.kinds.includes(card.kind)) return false;
+  if (!isEmptyStats(wanted.stats) && !fitsCardStats(card, wanted.stats!)) return false;
   if (!wanted.subtypes.every((subtype) => card.subtypes.includes(subtype))) return false;
   if (wanted.types.length && !(card.monsterType && wanted.types.includes(card.monsterType))) return false;
   if (wanted.attributes.length && !(card.attribute && wanted.attributes.includes(card.attribute))) return false;

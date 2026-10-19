@@ -4,7 +4,9 @@ import { fileURLToPath } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 export const RAW_CARDS_PATH = path.join(root, "data/raw/cardinfo.json");
+export const RAW_SETS_PATH = path.join(root, "data/raw/cardsets.json");
 export const CARDS_PATH = path.join(root, "data/cards.json");
+export const SETS_PATH = path.join(root, "data/sets.json");
 export const TAGS_PATH = path.join(root, "data/tags/tags.jsonl");
 export const TAG_STATE_PATH = path.join(root, "data/tags/state.json");
 export const TAG_FAILURES_PATH = path.join(root, "data/tags/failures.jsonl");
