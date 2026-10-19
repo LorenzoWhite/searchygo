@@ -191,8 +191,8 @@ function Copies({ card, slot, artOf }: { card: Card; slot: DeckSlot; artOf: () =
 /** When a counter is played, as the "Stops" line says it. */
 const WHEN = { going_first: "going first", going_second: "going second", either: "either way" } as const;
 
-export function CardRow({ result, slot }: { result: Result; slot: DeckSlot }) {
-  const { card, summary, roles, fits, stops, answer } = result;
+export function CardRow({ result, slot, onRelated }: { result: Result; slot: DeckSlot; onRelated?: (card: Card) => void }) {
+  const { card, summary, roles, fits, stops, answer, related } = result;
   const frame = frameOf(card);
   const isMonster = card.kind === "monster";
   const tileRef = useRef<HTMLLIElement>(null);
@@ -224,6 +224,11 @@ export function CardRow({ result, slot }: { result: Result; slot: DeckSlot }) {
       <div className="tile__slot">
         <CardArt card={card} frame={frame} />
         <Copies card={card} slot={slot} artOf={() => tileRef.current?.querySelector<HTMLElement>(".tile__art") ?? null} />
+        {onRelated && (
+          <button type="button" className="tile__related" onClick={() => onRelated(card)}>
+            Related cards
+          </button>
+        )}
       </div>
 
       <div className="tile__face">
@@ -252,6 +257,11 @@ export function CardRow({ result, slot }: { result: Result; slot: DeckSlot }) {
         {fits && fits.length > 0 && (
           <p className="tile__fits">
             <span>Fits</span> {fits.join(" · ")}
+          </p>
+        )}
+        {related && related.length > 0 && (
+          <p className="tile__fits">
+            <span>Related</span> {related.join(" · ")}
           </p>
         )}
       </div>

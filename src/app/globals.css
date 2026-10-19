@@ -1414,6 +1414,33 @@ select:disabled {
  * How many of the card are in the deck, as card-shaped pips with a button either side. With none
  * in the deck there is nothing to count or take out, so it is one button that says what it does.
  */
+/* Under the deck control: the way to the cards related to this one. */
+.tile__related {
+  padding: var(--space-3xs) 0;
+  border: 0;
+  background: none;
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-decoration: underline;
+  text-decoration-color: var(--color-ink-muted);
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .tile__related:hover {
+    text-decoration-color: currentColor;
+    text-decoration-thickness: 2px;
+  }
+}
+
+.tile__related:focus-visible {
+  outline-color: var(--color-ink);
+}
+
 .copies {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;

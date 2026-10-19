@@ -86,14 +86,48 @@ themselves, with nothing to run by hand.
 - **Failed-search log.** Note searches that find nothing or get read badly, to see what to teach the
   reader next.
 - **Re-profile synergy hooks** that still find nothing (77 hooks across the profiles).
+- **Related cards.** A button on every card (tile and pop-up) that searches for the cards related
+  to it, each result saying why: names this card → named on this card → same archetype → archetype
+  support from outside it (including archetypes named in quotes, so "Mind Scan" finds the Toon cards
+  though the data gives it no archetype) → similar effects worded differently (from the tags; asked
+  for by @katiegrayx3637). It is an ordinary search, so it can be sorted, filtered, shared
+  (`?related=<passcode>`) and typed ("related to Dark Magician"). Phase 1 (the first four links) is
+  done. Phase 2, similar effects, is next: compare each card's tags (what its effects do, from where,
+  at what timing) with every other card's and tune the ranking so "similar" means similar to a player.
+  It also gives cards with no archetype and no name links (Effect Veiler) something to show.
+  - *Player-named groups.* Some groups players treat as one are not official archetypes, so
+    related cards miss them: the Ghost Girls (Ash Blossom & Joyous Spring, Ghost Ogre & Snow Rabbit,
+    Ghost Belle & Haunted Mansion, Ghost Mourner, Ghost Reaper, Ghost Sister), the Monarchs, and
+    others. A small hand-kept list of these groups, treated like archetypes by related cards (and
+    readable in searches: "ghost girls"), covers them; similar effects alone would mix them in with
+    every other hand trap.
+  - *Status.* Experimental: on locally (`NEXT_PUBLIC_SEARCHYGO_RELATED=1` in `.env.local`), off on
+    the live site until it is set in Vercel.
 - **Deck suggestions in the deck builder.** Suggest cards from what the deck already plays (its
   archetypes' synergy, its weak points). To brainstorm first: where suggestions appear, how they are
   ranked, and how they are explained.
 - **Deck data from deck sites.** Use real deck lists for deckbuilding help: which cards decks of an
-  archetype actually play, common tech choices, what is rising. Sources to look at: YGOPRODeck,
-  CardCluster, Master Duel Meta, and Yu-Gi-Oh! meta sites. Before building, check each one's API and
-  terms (some offer an API, others may not allow collecting their pages), ask where needed, credit
-  the source on the site, and cache so their servers are asked rarely.
+  archetype actually play, common tech and side choices, what is rising. Never republish deck lists:
+  show statistics and link back to the source's deck pages.
+  - *Sources.* YGOPRODeck (card API is public and rate-limited; no documented deck API), Master Duel
+    Meta and Yu-Gi-Oh! Meta (one team, also Duel Links Meta; robots rules allow crawling, sitemaps of
+    top decks, but no documented API), CardCluster (blocks automated visitors behind a bot challenge,
+    so only with their permission). Step one is asking each for access.
+  - *Adapters.* One per source, each turning that site's deck lists into one shape: source, link,
+    date, format (TCG / OCG / Master Duel / Genesys), event and placing, Main/Extra/Side as passcodes
+    (names matched with the deck importer's lookup). Each deck is labelled with its archetype from its
+    cards, or the source's own label.
+  - *Statistics, not lists.* Worked out at each refresh and kept as a small JSON file, like the
+    synergy profiles: per archetype, format and month, the share of lists playing each card and its
+    average copies (core / common / tech), the commonest side cards (real counter data), outside cards
+    played with it (real synergy data), and what is rising.
+  - *On the site.* "Decks like yours also play…" in the deck builder (compare the deck to real lists);
+    "played in 41% of tournament lists" on synergy and counter results, ranking real choices first; a
+    "What Clown Crew plays" summary linking to example decks on the source site.
+  - *Refresh.* Weekly, in the automatic card refresh job: only decks newer than the last run, slowly,
+    under a named user agent, crediting every source on the site.
+  - *Order.* Contact YGOPRODeck and the Meta team → the first source that agrees, play rates for the
+    most played decks → deck builder suggestions → more sources and trends.
 - **Learning from real games.** Feed actual game data (replays, deck lists, tournament results) to
   the profiles or a model, so synergy and counter answers reflect how decks are really played,
   including lines and interactions no one has written down. Open: fine-tune a model, or use the data
@@ -104,6 +138,7 @@ themselves, with nothing to run by hand.
 
 ## Done
 
+- Related cards, phase 1: names it, named on it, same archetype, archetype support
 - Advanced search panel; search by ATK/DEF; TCG set filter
 - Result sorting: name, ATK, DEF, Level/Rank/Link, release date, popularity, either direction
 - Credits page and YouTube feedback triage

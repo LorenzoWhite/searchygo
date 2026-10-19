@@ -34,6 +34,8 @@ export interface SearchQuery {
   format?: string;
   /** A TCG set the card was printed in, by code ("RA04") or name. */
   set?: string;
+  /** Show the cards related to this one (passcode), instead of reading the text. */
+  related?: number;
   /** First released in or between these years (see releaseDate). */
   yearFrom?: number;
   yearTo?: number;
@@ -99,6 +101,8 @@ export interface SearchHit {
   stops?: { label: string; when: Timing }[];
   /** In a counters search: set when the profile names this card as one players use against the deck. */
   answer?: { why: string; when: Timing };
+  /** In a related-cards search: how this card is related to the one asked about. */
+  related?: string[];
 }
 
 /** What a counters search was looking for, so the results can be explained. */
@@ -172,6 +176,9 @@ const COMBINED_PATTERNS: { pattern: RegExp; fit: 1 | 2; stop: 1 | 2 }[] = [
   { pattern: /^(?:counters?|answers?|side(?: deck)? cards?) (?:to |for |against )?(.+?) (?:that|which) (?:also )?(?:works?|goes|go|fits?|synerg\w+|plays?) (?:well )?(?:with|in|into) (.+)$/, fit: 2, stop: 1 },
   { pattern: /^(?:counters?|answers?) (?:to|for|against) (.+?) (?:for|in) (.+)$/, fit: 2, stop: 1 },
 ];
+/** "related to Dark Magician", "cards related to Mind Scan": the related cards of one card, named in full. */
+const RELATED_PATTERNS = [/^(?:cards? )?related (?:to|with) (.+)$/, /^related cards? (?:of|for|to) (.+)$/];
+
 /** How a question is opened before it gets to the point: "what works with...", "show me cards that...". */
 const QUESTION_OPENING = /^(?:what|which|show me|find|list|give me|any|are there(?: any)?)(?: is| are)?(?: the| some)? /;
 
@@ -229,6 +236,31 @@ export interface CardNotes {
   roles: CardTags["roles"];
 }
 
+/** How cards are linked to each other, for related cards. Positions are entries in the index. */
+interface RelatedLinks {
+  entryById: Map<number, number>;
+  entryByName: Map<string, number>;
+  /** Lower-cased archetype -> the archetype as written. */
+  archetypeNames: Map<string, string>;
+  members: Map<string, number[]>;
+  /** The cards each card names in quotes. */
+  names: number[][];
+  /** The archetypes each card names in quotes or supports (lower-cased). */
+  namedArchetypes: string[][];
+  /** The cards that name each card. */
+  namedBy: Map<number, number[]>;
+  /** Cards outside an archetype that name or support it. */
+  supporters: Map<string, number[]>;
+}
+
+/** A card name evened out for matching: case, quotes and stray punctuation do not count ("Maxx C"). */
+const plainName = (name: string) =>
+  name
+    .toLowerCase()
+    .replace(/["“”?.!]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
 export class SearchIndex {
   private entries: Entry[] = [];
   /** Every passcode a card answers to, its alternate artworks included. */
@@ -243,6 +275,8 @@ export class SearchIndex {
   /** Counter profiles by lower-cased name, and the counters each one finds, worked out on first use. */
   private counterProfiles = new Map<string, { archetype: string; profile: CounterProfile }>();
   private counters = new Map<string, ReturnType<typeof findCounters>>();
+  /** Which cards name which, and who belongs to or supports each archetype; worked out on first use. */
+  private links?: RelatedLinks;
   readonly taggedCount: number;
 
   constructor(
@@ -251,6 +285,8 @@ export class SearchIndex {
     profiles: ReadonlyMap<string, ArchetypeProfile> = new Map(),
     counterProfiles: ReadonlyMap<string, CounterProfile> = new Map(),
     readonly sets: SetsFile = { sets: [], cards: {} },
+    /** Related-card searches answer only when this is on (it is off on the live site while they are tried out). */
+    private readonly relatedOn = true,
   ) {
     for (const [archetype, profile] of profiles) this.profiles.set(archetype.toLowerCase(), { archetype, profile });
     for (const [archetype, profile] of counterProfiles) this.counterProfiles.set(archetype.toLowerCase(), { archetype, profile });
@@ -350,6 +386,9 @@ export class SearchIndex {
       return { total: scored.length, hits, reading };
     };
 
+    const related = !this.relatedOn ? undefined : query.related !== undefined ? this.entryOf(query.related) : query.literal ? undefined : this.relatedTarget(text);
+    if (related !== undefined) return this.searchRelated(related, matchesFilters, query);
+
     const counter = query.literal || !this.counterProfiles.size ? null : this.counterTarget(text);
     if (counter) return this.searchCounters(counter.stop, counter.fit, matchesFilters, query);
 
@@ -377,6 +416,107 @@ export class SearchIndex {
       if (known) return known;
     }
     return null;
+  }
+
+  /** The entry of a card by passcode, an alternate artwork's included. */
+  private entryOf(id: number): number | undefined {
+    const card = this.byId.get(id);
+    return card ? this.relatedLinks().entryById.get(card.id) : undefined;
+  }
+
+  /** The card a search asks the related cards of ("related to dark magician"), named in full. */
+  private relatedTarget(text: string): number | undefined {
+    const asked = asking(text);
+    for (const pattern of RELATED_PATTERNS) {
+      const name = pattern.exec(asked)?.[1];
+      const found = name && this.relatedLinks().entryByName.get(plainName(name));
+      if (found !== undefined && found !== "") return found;
+    }
+    return undefined;
+  }
+
+  private relatedLinks(): RelatedLinks {
+    if (this.links) return this.links;
+    const entryById = new Map<number, number>();
+    const entryByName = new Map<string, number>();
+    const archetypeNames = new Map<string, string>();
+    const members = new Map<string, number[]>();
+    this.entries.forEach(({ card }, index) => {
+      entryById.set(card.id, index);
+      entryByName.set(plainName(card.name), index);
+      if (card.archetype) {
+        const key = card.archetype.toLowerCase();
+        archetypeNames.set(key, card.archetype);
+        members.set(key, [...(members.get(key) ?? []), index]);
+      }
+    });
+    const names: number[][] = [];
+    const namedArchetypes: string[][] = [];
+    const namedBy = new Map<number, number[]>();
+    const supporters = new Map<string, number[]>();
+    this.entries.forEach(({ card, tags }, index) => {
+      const quoted = [...`${card.pendulumText ?? ""}\n${card.text}`.matchAll(/"([^"]+)"/g)].map(([, name]) => name!);
+      const cards = new Set<number>();
+      const archetypes = new Set<string>();
+      for (const name of quoted) {
+        const named = entryByName.get(plainName(name));
+        if (named !== undefined && named !== index) cards.add(named);
+        else if (named === undefined && archetypeNames.has(name.toLowerCase())) archetypes.add(name.toLowerCase());
+      }
+      // The tags also say which archetypes a card supports, which catches support worded without quotes.
+      for (const archetype of tags?.supports.archetypes ?? []) if (archetypeNames.has(archetype.toLowerCase())) archetypes.add(archetype.toLowerCase());
+      names[index] = [...cards];
+      namedArchetypes[index] = [...archetypes];
+      for (const named of cards) namedBy.set(named, [...(namedBy.get(named) ?? []), index]);
+      for (const archetype of archetypes) {
+        if (card.archetype?.toLowerCase() !== archetype) supporters.set(archetype, [...(supporters.get(archetype) ?? []), index]);
+      }
+    });
+    this.links = { entryById, entryByName, archetypeNames, members, names, namedArchetypes, namedBy, supporters };
+    return this.links;
+  }
+
+  /**
+   * The cards related to one card, closest first: cards that name it, the cards it names, the rest of
+   * its archetype, then cards from outside the archetype that support it. A card with no archetype of
+   * its own is related to the archetypes it names ("Mind Scan" names "Toon" cards). Each result says why.
+   */
+  private searchRelated(index: number, matchesFilters: (entry: Entry) => boolean, query: SearchQuery): SearchResult {
+    const links = this.relatedLinks();
+    const { card } = this.entries[index]!;
+    const found = new Map<number, { rank: number; why: string[] }>();
+    const add = (indexes: readonly number[] | undefined, rank: number, why: string) => {
+      for (const other of indexes ?? []) {
+        if (other === index) continue;
+        const entry = found.get(other);
+        if (!entry) found.set(other, { rank, why: [why] });
+        else if (!entry.why.includes(why)) entry.why.push(why);
+      }
+    };
+    add(links.namedBy.get(index), 0, `Names ${card.name}`);
+    add(links.names[index], 1, "Named on this card");
+    const own = card.archetype?.toLowerCase();
+    if (own) add(links.members.get(own), 2, "Same archetype");
+    for (const archetype of links.namedArchetypes[index]!) {
+      if (archetype !== own) add(links.members.get(archetype), 2, `${links.archetypeNames.get(archetype)} card`);
+    }
+    if (own) add(links.supporters.get(own), 3, `Supports ${card.archetype}`);
+
+    const views = (other: number) => this.entries[other]!.card.views;
+    const ranked = [...found]
+      .filter(([other]) => matchesFilters(this.entries[other]!))
+      .sort(([a, x], [b, y]) => x.rank - y.rank || views(b) - views(a));
+    const offset = query.offset ?? 0;
+    return {
+      total: ranked.length,
+      hits: arrange(ranked, ([other]) => this.entries[other]!.card, query)
+        .slice(offset, offset + (query.limit ?? 30))
+        .map(([other, { why }]) => {
+          const { card: related, tags } = this.entries[other]!;
+          return { card: related, tags, score: why.length, related: why };
+        }),
+      reading: { chips: [`Related to: ${card.name}`], matched: true },
+    };
   }
 
   /** Two archetypes a search asks to bring together ("synergy with vaalmonica and sky striker"). */

@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { FEATURES } from "@/lib/features";
 import { SORTS, SORT_DIRECTIONS, type SortBy, type SortDirection } from "@/lib/sort";
 import { ATTRIBUTES, FORMATS, MD_RARITIES, MD_RARITY_NAMES, MONSTER_TYPES, type Card, type CardKind, type MasterDuelRarity } from "@/lib/card";
 import { copiesOf, deckSize, homeSection, whyNot } from "@/lib/deck";
@@ -400,6 +401,15 @@ export function SearchApp() {
     const notes = deck.notes.get(id);
     return card ? [{ card, summary: notes?.summary, roles: notes?.roles ?? [] }] : [];
   });
+  /** Swaps the results for the cards related to one card, as a search anyone can share or edit. */
+  const showRelated = (card: Card) => {
+    setText(`related to ${card.name}`);
+    setFilter({ literal: "" });
+    setOpened(null);
+    setDeckOpened(null);
+    setDeckOpen(false);
+    window.scrollTo({ top: 0, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  };
   const slotFor = (card: Card): DeckSlot => ({
     copies: copiesOf(deck.deck, card.id),
     blocked: whyNot(deck.deck, card, homeSection(card)),
@@ -946,10 +956,17 @@ export function SearchApp() {
 
                 {data.total === 0 ? (
                   <div className="notice">
-                    <p>
-                      <strong>No cards match{text.trim() ? ` “${text.trim()}”` : " these filters"}.</strong> Try fewer
-                      words{hasFilters ? ", or clear the filters to search every card." : "."}
-                    </p>
+                    {reading?.chips[0]?.startsWith("Related to: ") && !hasFilters ? (
+                      <p>
+                        <strong>No related cards yet.</strong> {reading.chips[0].slice("Related to: ".length)} belongs to no archetype and no
+                        other card names it. Finding cards with similar effects is planned.
+                      </p>
+                    ) : (
+                      <p>
+                        <strong>No cards match{text.trim() ? ` “${text.trim()}”` : " these filters"}.</strong> Try fewer
+                        words{hasFilters ? ", or clear the filters to search every card." : "."}
+                      </p>
+                    )}
                     {hasFilters && (
                       <button type="button" className="button" onClick={clearFilters}>
                         Clear filters
@@ -962,7 +979,7 @@ export function SearchApp() {
                       view === "gallery" ? (
                         <GalleryCard key={result.card.id} result={result} copies={copiesOf(deck.deck, result.card.id)} onOpen={() => setOpened(index)} />
                       ) : (
-                        <CardRow key={result.card.id} result={result} slot={slotFor(result.card)} />
+                        <CardRow key={result.card.id} result={result} slot={slotFor(result.card)} onRelated={FEATURES.related ? showRelated : undefined} />
                       ),
                     )}
                   </ol>
@@ -1012,13 +1029,14 @@ export function SearchApp() {
       </button>
       {/* On a screen too narrow to hold both, the panel lies over the search and this dims what is behind it. */}
       <div className="scrim" aria-hidden="true" onClick={closeDeck} />
-      <CardDialog results={data?.results ?? []} index={opened} slotFor={slotFor} onMove={setOpened} onClose={() => setOpened(null)} />
+      <CardDialog results={data?.results ?? []} index={opened} slotFor={slotFor} onMove={setOpened} onClose={() => setOpened(null)} onRelated={FEATURES.related ? showRelated : undefined} />
       <CardDialog
         results={deckResults}
         index={deckOpened && deckOpened.index < deckResults.length ? deckOpened.index : null}
         slotFor={slotFor}
         onMove={(index) => setDeckOpened((shown) => shown && { ...shown, index })}
         onClose={() => setDeckOpened(null)}
+        onRelated={FEATURES.related ? showRelated : undefined}
       />
       <DeckPanel controls={deck} open={deckOpen} onClose={closeDeck} landingRef={deckLandingRef} onOpenCard={(cards, index) => setDeckOpened({ ids: cards.map((card) => card.id), index })} />
     </div>

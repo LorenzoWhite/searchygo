@@ -30,5 +30,6 @@ export interface SearchResponse {
     /** In a counters search: what of the deck this card stops, and whether players name it outright. */
     stops?: SearchHit["stops"];
     answer?: SearchHit["answer"];
+    related?: SearchHit["related"];
   }[];
 }

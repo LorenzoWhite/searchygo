@@ -57,6 +57,7 @@ export async function GET(request: NextRequest) {
     defMax: integer(params, "defMax"),
     format: list(params, "format", FORMATS)[0],
     set: params.get("set")?.slice(0, 80) || undefined,
+    related: integer(params, "related"),
     ...years(integer(params, "from"), integer(params, "to")),
     sort: list(params, "sort", SORTS)[0],
     dir: list(params, "dir", ["asc", "desc"] as const)[0],
@@ -87,13 +88,14 @@ export async function GET(request: NextRequest) {
       excluded,
       synergy,
       counters,
-      results: hits.map(({ card, tags, fits, stops, answer }) => ({
+      results: hits.map(({ card, tags, fits, stops, answer, related }) => ({
         card,
         summary: tags?.summary,
         roles: tags?.roles ?? [],
         fits,
         stops,
         answer,
+        related,
       })),
     });
     answers.set(key, answer);

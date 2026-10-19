@@ -127,4 +127,11 @@ export const CREDITS: Credit[] = [
     status: "planned",
     date: "2026-10-19",
   },
+  {
+    by: ["@katiegrayx3637"],
+    kind: "idea",
+    what: "Cards with similar effects worded differently, from a card's related cards",
+    status: "planned",
+    date: "2026-10-19",
+  },
 ];
