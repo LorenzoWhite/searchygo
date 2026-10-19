@@ -1,3 +1,4 @@
+import { Analytics } from "@vercel/analytics/next";
 import type { Metadata, Viewport } from "next";
 import { Vollkorn, Vollkorn_SC } from "next/font/google";
 import "../../tokens.css";
@@ -41,6 +42,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* The halftone screen printed on the mat, behind everything. */}
         <div className="halftone" aria-hidden="true" />
         {children}
+        {/* Vercel Web Analytics: page views and visitors, without cookies. Only counts on the deployed site. */}
+        <Analytics />
       </body>
     </html>
   );
