@@ -50,7 +50,10 @@ owner's go-ahead on that item.**
    /credits page, from `src/lib/credits.ts`. Add an entry when an item is approved (`coming`, or
    `planned` for the roadmap), naming everyone who raised it by their YouTube name, and move it to
    `added` or `fixed` once it is live. Say what it was plainly, as a player would read it. Praise,
-   questions and requests that were declined are not credited.
+   questions and requests that were declined are not credited. **Only the first person to raise an
+   idea is credited** (check the comment dates); someone who asks later for the same thing gets no
+   credit, and nor does anyone asking for something already on `ROADMAP.md`. (This applies to credits
+   added from 20 October 2026 on; earlier entries stay as they are.)
 
 ## Adding a video
 

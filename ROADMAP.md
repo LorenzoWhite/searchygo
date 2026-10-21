@@ -103,6 +103,12 @@ themselves, with nothing to run by hand.
     every other hand trap.
   - *Status.* Experimental: on locally (`NEXT_PUBLIC_SEARCHYGO_RELATED=1` in `.env.local`), off on
     the live site until it is set in Vercel.
+- **What a card can fetch, and what can fetch it.** Two directions on the same reading of each
+  effect's conditions (kind, Type, Attribute, Level, ATK/DEF, names): *every legal target of a card*
+  (what Nightmell the Dark Bonder can summon; asked for by @Badbufon) and *what can search or summon
+  a given card* (type "Duza the Meteor Cubic Vessel", get the cards that can fetch it; asked for by
+  @st0rmerc00l8). Small World needs two steps (a bridge sharing exactly one property with each side),
+  so it is its own piece.
 - **Deck suggestions in the deck builder.** Suggest cards from what the deck already plays (its
   archetypes' synergy, its weak points). To brainstorm first: where suggestions appear, how they are
   ranked, and how they are explained.
@@ -135,6 +141,13 @@ themselves, with nothing to run by hand.
   candidate sources; a chat mode for long questions belongs with deep search below.
 - **Connector / deep search.** An MCP endpoint so people can bring their own model, and a live-model
   "deep search" for long questions.
+
+## Parked
+
+Ideas written down but not planned, because the search already covers them another way.
+
+- **"Or" in searches.** One search that finds cards doing any of several things ("pay LP or opponent
+  gains LP"). Each part can already be searched on its own, so this is a convenience, not a fix.
 
 ## Done
 

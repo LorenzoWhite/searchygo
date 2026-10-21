@@ -155,4 +155,18 @@ export const CREDITS: Credit[] = [
     status: "added",
     date: "2026-10-19",
   },
+  {
+    by: ["@Badbufon"],
+    kind: "idea",
+    what: "See every legal target of a card: what Nightmell the Dark Bonder can summon, what Small World can use",
+    status: "planned",
+    date: "2026-10-20",
+  },
+  {
+    by: ["@st0rmerc00l8"],
+    kind: "idea",
+    what: "Name a card and find the cards that can search or summon it",
+    status: "planned",
+    date: "2026-10-20",
+  },
 ];
