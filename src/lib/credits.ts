@@ -169,4 +169,11 @@ export const CREDITS: Credit[] = [
     status: "planned",
     date: "2026-10-20",
   },
+  {
+    by: ["@massunoi"],
+    kind: "bug",
+    what: "“synergy with Ojama” listed cards that react to the opponent Summoning, which Ojama's tokens never trigger",
+    status: "fixed",
+    date: "2026-10-22",
+  },
 ];

@@ -352,7 +352,7 @@ function reread() {
   let rebuilt = 0;
   const rows = readJsonl<ProfiledArchetype>(profilesPath).map((row) => {
     // A profile written or corrected by hand stays as it is.
-    if (row.model === "hand-written" || row.model.includes("checked by a player")) return row;
+    if (row.model === "hand-written" || row.model.includes("checked by a player") || row.model.includes("corrected by hand")) return row;
     const kept = latest.get(row.archetype);
     const read = kept && job.read(kept.reply, row.archetype);
     if (!kept || !read) return row;
