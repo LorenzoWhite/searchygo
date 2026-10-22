@@ -140,6 +140,7 @@ Look for the places where this archetype touches the rest of the game:
 - A hook is checked against one outside card on its own, so it must describe that card, not a combination.
 - Prefer a few sharp hooks to many loose ones. The engine throws away a hook that fits more than about 700 cards, which is what happens to "banishes a card", "has an effect in the GY" or "Special Summons a monster". Narrow such a hook (whose cards, from which zone, what kind of card) or leave it out.
 - Use "phrases" for game terms the verbs cannot tell apart, written exactly as cards print them: "Tribute Summon", "Ritual Monster", "Continuous Spell", "Pendulum Scale", "Xyz Material", "face-down Defense Position", "Counter". A phrase is matched literally against card text, so keep it to the one to three words every such card contains. The verb normal_summon covers Normal Summons, Tribute Summons and Sets alike, so a hook about Tribute Summoning needs the phrase.
+- The verb change_position covers every change of battle position, ATK to DEF included. A hook about face-down monsters (setting them, flipping them back down) needs the phrase "face-down", or it also finds cards that only switch ATK and DEF.
 - Never put the archetype's own name, or the names of its cards, in a hook. The point is to find cards that do not mention it.
 - Describe the outside card from its own point of view: a card that Tributes your monsters has "does" tribute with "player": "you".
 - Use only the terms listed below. Leave out, or set to null, [] or 0, whatever does not apply.

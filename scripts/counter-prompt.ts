@@ -262,6 +262,7 @@ An answer is a card players actually use against this deck: {"name": "the card's
 - Every weakness must come from something specific in these cards. "Draws a hand" or "plays monsters" is not a weakness.
 - A weakness is checked against one answering card on its own, so it must describe that card.
 - Use "phrases" for game terms the verbs cannot tell apart, written exactly as cards print them ("from the Deck", "banished instead", "Summoned 5 or more", "cannot Special Summon"). A phrase is matched literally against card text, so keep it to the one to four words every such card contains.
+- The verb change_position covers every change of battle position, ATK to DEF included. A hook about face-down monsters (setting them, flipping them back down) needs the phrase "face-down", or it also finds cards that only switch ATK and DEF.
 - Never put the archetype's own name, or the names of its cards, in a weakness.
 - Use only the terms listed below. Leave out, or set to null, [] or 0, whatever does not apply.
 

@@ -176,4 +176,11 @@ export const CREDITS: Credit[] = [
     status: "fixed",
     date: "2026-10-22",
   },
+  {
+    by: ["@Arasarcan"],
+    kind: "bug",
+    what: "“synergy with Enneacraft” listed cards like Zero Gravity as putting monsters face-down, which they cannot do",
+    status: "fixed",
+    date: "2026-10-22",
+  },
 ];
