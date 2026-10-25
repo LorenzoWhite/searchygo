@@ -64,6 +64,7 @@ export function CardDialog({
   onMove,
   onClose,
   onRelated,
+  onReport,
 }: {
   results: Result[];
   index: number | null;
@@ -72,6 +73,8 @@ export function CardDialog({
   onClose: () => void;
   /** Shows the cards related to this one, in place of the current results. */
   onRelated?: (card: Card) => void;
+  /** Reports that a card shown cannot work with the deck the results are for. */
+  onReport?: (card: Card) => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const result = index === null ? undefined : results[index];
@@ -121,7 +124,7 @@ export function CardDialog({
             </button>
           </div>
           <ol className="cards carddialog__card">
-            <CardRow key={result.card.id} result={result} slot={slotFor(result.card)} onRelated={onRelated} />
+            <CardRow key={result.card.id} result={result} slot={slotFor(result.card)} onRelated={onRelated} onReport={onReport} />
           </ol>
         </>
       )}

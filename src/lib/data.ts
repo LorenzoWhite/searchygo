@@ -5,6 +5,7 @@ import type { Card } from "./card.ts";
 import { SearchIndex } from "./search.ts";
 import type { CounterProfile, CounteredArchetype } from "./counters.ts";
 import { FEATURES } from "./features.ts";
+import { NO_OVERRIDES, type Overrides } from "./reports.ts";
 import type { SetsFile } from "./sets.ts";
 import type { ArchetypeProfile, ProfiledArchetype } from "./synergy.ts";
 import type { CardTags, TaggedCard } from "./tags.ts";
@@ -47,7 +48,10 @@ async function load(): Promise<SearchIndex> {
   // The sets cards were printed in; without the file the set filter simply finds nothing.
   const sets = JSON.parse(await fs.readFile(path.join(DATA_DIR, "sets.json"), "utf8").catch(() => '{"sets":[],"cards":{}}')) as SetsFile;
 
-  return new SearchIndex(cards, tagsById, profiles, counters, sets, FEATURES.related);
+  // Fixes approved from people's reports; see src/lib/reports.ts.
+  const overrides = JSON.parse(await fs.readFile(path.join(DATA_DIR, "overrides.json"), "utf8").catch(() => JSON.stringify(NO_OVERRIDES))) as Overrides;
+
+  return new SearchIndex(cards, tagsById, profiles, counters, sets, FEATURES.related, overrides);
 }
 
 let index: Promise<SearchIndex> | undefined;

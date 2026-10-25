@@ -1012,6 +1012,75 @@ select:disabled {
   border-inline-start: var(--rule-width) solid var(--color-mat-line);
 }
 
+.synergy__suggest {
+  justify-self: start;
+}
+
+/* --- Report a mismatch / Suggest a card ---------------------------------------------------------- */
+
+.reportdialog {
+  width: min(32rem, calc(100% - 2 * var(--space-sm)));
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.reportdialog::backdrop {
+  background: var(--color-scrim);
+}
+
+.reportdialog__form {
+  display: grid;
+  gap: var(--space-sm);
+  background: var(--color-mat);
+  color: var(--color-on-mat);
+}
+
+.reportdialog__form h2 {
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: 700;
+  font-variant: small-caps;
+  letter-spacing: 0.06em;
+  color: var(--color-gold);
+}
+
+.reportdialog__about {
+  font-size: var(--text-sm);
+  color: var(--color-on-mat-muted);
+}
+
+.reportdialog__about strong {
+  color: var(--color-on-mat);
+}
+
+.reportdialog__form input[type="text"],
+.reportdialog__form textarea {
+  width: 100%;
+  padding: var(--space-xs) var(--space-sm);
+  border: var(--rule-width) solid var(--color-ink);
+  border-radius: var(--radius-control);
+  background: var(--color-parchment);
+  color: var(--color-ink);
+  font: inherit;
+}
+
+.reportdialog__form input[type="text"] {
+  height: var(--control-height);
+}
+
+.reportdialog__error {
+  color: var(--color-forbidden);
+  font-size: var(--text-sm);
+}
+
+.reportdialog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
 .synergy__note {
   font-size: var(--text-sm);
   color: var(--color-on-mat-muted);

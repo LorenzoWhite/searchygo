@@ -183,4 +183,25 @@ export const CREDITS: Credit[] = [
     status: "fixed",
     date: "2026-10-22",
   },
+  {
+    by: ["@skyduskguy", "@NickMirambeau"],
+    kind: "bug",
+    what: "Effects locked to named cards showed up for things those cards can't be: Volcanic Scattershot in Skull Servant synergy, Radiant Typhoon Chant in “search level 4 warrior”",
+    status: "fixed",
+    date: "2026-10-22",
+  },
+  {
+    by: ["@skyduskguy"],
+    kind: "idea",
+    what: "A way to report a wrong synergy or counter result, and to suggest a missing card",
+    status: "coming",
+    date: "2026-10-22",
+  },
+  {
+    by: ["@jacobkleinheinz376"],
+    kind: "idea",
+    what: "Search for Trap monsters, the Traps that Special Summon themselves (Tiki Curse, Tiki Soul)",
+    status: "added",
+    date: "2026-10-26",
+  },
 ];

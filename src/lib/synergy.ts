@@ -8,7 +8,7 @@
  */
 import * as z from "zod";
 import { ATTRIBUTES, CARD_KINDS, MONSTER_TYPES, SUBTYPES, type Card } from "./card.ts";
-import { matchCard } from "./effect-match.ts";
+import { buildCardWorld, matchCard, type CardWorld } from "./effect-match.ts";
 import type { EffectQuery, EventQuery, ObjectQuery } from "./query.ts";
 import type { CardTags } from "./tags.ts";
 import { VERBS, ZONES } from "./vocabulary.ts";
@@ -209,6 +209,17 @@ export interface Candidate {
   tags?: CardTags;
 }
 
+const worlds = new WeakMap<readonly Candidate[], CardWorld>();
+/** The card lookup for a list of candidates, built once per list. */
+export function worldOf(candidates: readonly Candidate[]): CardWorld {
+  let world = worlds.get(candidates);
+  if (!world) {
+    world = buildCardWorld(candidates.map(({ card }) => card));
+    worlds.set(candidates, world);
+  }
+  return world;
+}
+
 /** A hook that fits more than this share of all cards describes nothing in particular, and is not used. */
 const TOO_COMMON_SHARE = 0.05;
 
@@ -249,7 +260,7 @@ export function findPartners(profile: ArchetypeProfile, archetype: string, candi
     const found: { index: number; specificity: number }[] = [];
     candidates.forEach(({ card, tags }, index) => {
       if (!outside[index] || !phrases.every((phrase) => printed[index]!.includes(phrase))) return;
-      const specificity = matchCard(card, tags, query);
+      const specificity = matchCard(card, tags, query, worldOf(candidates));
       if (specificity !== null) found.push({ index, specificity });
     });
     return found.sort((a, b) => b.specificity - a.specificity || views(b.index) - views(a.index));

@@ -15,7 +15,7 @@
 import * as z from "zod";
 import type { Card } from "./card.ts";
 import { matchCard } from "./effect-match.ts";
-import { Hook, belongsTo, hookQuery, readHook, type Candidate } from "./synergy.ts";
+import { Hook, belongsTo, hookQuery, readHook, worldOf, type Candidate } from "./synergy.ts";
 import { ROLES, type CardTags } from "./tags.ts";
 
 const ROLE_NAMES = Object.keys(ROLES) as [keyof typeof ROLES, ...(keyof typeof ROLES)[]];
@@ -202,7 +202,7 @@ export function findCounters(profile: CounterProfile, archetype: string, candida
     const found: { index: number; specificity: number }[] = [];
     candidates.forEach(({ card, tags }, index) => {
       if (!outside[index] || !fitsRoles(tags, weakness.roles) || !phrases.every((phrase) => printed[index]!.includes(phrase))) return;
-      const specificity = matchCard(card, tags, query);
+      const specificity = matchCard(card, tags, query, worldOf(candidates));
       if (specificity !== null) found.push({ index, specificity });
     });
     return found.sort((a, b) => b.specificity - a.specificity || views(b.index) - views(a.index));

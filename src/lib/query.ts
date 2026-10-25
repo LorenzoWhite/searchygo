@@ -340,6 +340,8 @@ const PLAYER_TERMS: [RegExp, string][] = [
   [/\brecruiters?\b/g, "when destroyed by battle special summon a monster from the deck"],
   [/\bfloaters?\b/g, "when this card is destroyed special summon a monster"],
   [/\btutors?\b/g, "searchers"],
+  // Trap Cards that Special Summon themselves as monsters (Tiki Curse, Paleozoic, The Phantom Knights).
+  [/\btrap[- ]monsters?\b/g, "traps that special summon themselves as monsters"],
   // "self mill", "self-banish": doing it to your own cards.
   [/\bself[- ]?(mill\w*|banish\w*|destr\w*|discard\w*|tribut\w*|bounc\w*|send\w*|dump\w*)\b/g, "$1 your own"],
 ];

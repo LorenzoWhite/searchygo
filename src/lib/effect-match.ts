@@ -9,6 +9,60 @@
 import { isExtraDeckCard, type Card } from "./card.ts";
 
 const EXTRA_SUBTYPES = new Set(["fusion", "synchro", "xyz", "link"]);
+
+/**
+ * The cards an effect's named cards and archetypes stand for. With it, an effect locked to them
+ * ("add 1 "Radiant Typhoon" monster") can be checked against what a search asks for ("a Level 4
+ * Warrior"): if none of them could be it, the effect cannot do what was asked.
+ */
+export interface CardWorld {
+  named(name: string): Card | undefined;
+  members(archetype: string): readonly Card[];
+}
+
+export function buildCardWorld(cards: readonly Card[]): CardWorld {
+  const byName = new Map(cards.map((card) => [card.name.toLowerCase(), card]));
+  const members = new Map<string, Card[]>();
+  return {
+    // Card text puts plurals inside the quotes: "Nimble Momongas", "Guardragon Pisty(s)".
+    named: (name) => {
+      const key = name.toLowerCase();
+      return byName.get(key) ?? byName.get(key.replace(/\(s\)$/, "")) ?? byName.get(key.replace(/s$/, ""));
+    },
+    members(archetype) {
+      const key = archetype.toLowerCase();
+      let found = members.get(key);
+      if (!found) {
+        // An archetype's cards are those filed under it, and those whose name carries it, as card text counts them.
+        found = cards.filter((card) => card.archetype?.toLowerCase() === key || card.name.toLowerCase().includes(key));
+        members.set(key, found);
+      }
+      return found;
+    },
+  };
+}
+
+/** Whether a card is one the effect's own conditions allow: its kind, Type, Attribute and Level. */
+function allowedBy(card: Card, what: CardFilter): boolean {
+  if (what.kinds.length && !what.kinds.includes(card.kind)) return false;
+  if (what.subtypes.length && !what.subtypes.some((subtype) => card.subtypes.includes(subtype))) return false;
+  if (what.types.length && !(card.monsterType && (what.types as string[]).includes(card.monsterType))) return false;
+  if (what.attributes.length && !(card.attribute && what.attributes.includes(card.attribute))) return false;
+  const level = card.level ?? card.rank ?? card.linkRating;
+  if ((what.level_min || what.level_max) && (level == null || level < (what.level_min || 0) || level > (what.level_max || Infinity))) return false;
+  return true;
+}
+
+/** Whether a search asks anything of the card an effect moves, beyond naming an archetype. */
+const asksAboutTheCard = (wanted: ObjectQuery) =>
+  wanted.kinds.length > 0 ||
+  wanted.subtypes.length > 0 ||
+  wanted.types.length > 0 ||
+  wanted.attributes.length > 0 ||
+  wanted.levelMin !== undefined ||
+  wanted.levelMax !== undefined ||
+  !isEmptyStats(wanted.stats) ||
+  !!wanted.deck;
 import { fitsCardStats, fitsStatedStats, isEmptyStats, statsInText } from "./stats.ts";
 import { isEmptyObject, type EffectQuery, type EventQuery, type ObjectQuery } from "./query.ts";
 import type { CardFilter, CardTags, Effect, GameEvent } from "./tags.ts";
@@ -26,7 +80,7 @@ const sameArchetype = (a: string, b: string) => {
 };
 
 /** Null when the filter rules out what was asked for; otherwise how many things it names outright. */
-function matchObject(what: CardFilter, wanted: ObjectQuery): number | null {
+function matchObject(what: CardFilter, wanted: ObjectQuery, world?: CardWorld): number | null {
   let specific = 0;
   let narrower = false;
 
@@ -79,10 +133,22 @@ function matchObject(what: CardFilter, wanted: ObjectQuery): number | null {
     }
   } else if (bounded) narrower = true;
 
+  // An effect that can only move named cards or an archetype's cards fits only if one of them could be
+  // what was asked for. When nothing it names is known (a card not in the database), it is given the benefit.
+  if (world && (what.names.length || what.archetypes.length) && asksAboutTheCard(wanted)) {
+    // A quoted name that is no card is usually an archetype ("Raidraptor" monster).
+    const named = what.names.flatMap((name) => {
+      const card = world.named(name);
+      return card ? [card] : world.members(name);
+    });
+    const reachable = [...named, ...what.archetypes.flatMap((archetype) => world.members(archetype))].filter((card) => allowedBy(card, what));
+    if (reachable.length && !reachable.some((card) => matchCardItself(card, wanted))) return null;
+  }
+
   return specific - (narrower && !isEmptyObject(wanted) ? NARROWER_PENALTY : 0);
 }
 
-function matchEvent(event: GameEvent, wanted: EventQuery): number | null {
+function matchEvent(event: GameEvent, wanted: EventQuery, world?: CardWorld): number | null {
   if (!wanted.verbs.includes(event.verb)) return null;
   if (wanted.generic && (event.what.archetypes.length || event.what.names.length || /mentions? "/.test(event.what.other))) return null;
   // No zone given means none was stated: a zoneless verb, or the card's own event ("If this card is
@@ -94,16 +160,16 @@ function matchEvent(event: GameEvent, wanted: EventQuery): number | null {
   if (wanted.self) return event.what.this_card ? 1 : null;
   // An effect about the card itself says nothing about "a WATER monster".
   if (event.what.this_card && !isEmptyObject(wanted.object)) return null;
-  return matchObject(event.what, wanted.object);
+  return matchObject(event.what, wanted.object, world);
 }
 
-const best = (events: GameEvent[], wanted: EventQuery) =>
+const best = (events: GameEvent[], wanted: EventQuery, world?: CardWorld) =>
   events.reduce<number | null>((top, event) => {
-    const score = matchEvent(event, wanted);
+    const score = matchEvent(event, wanted, world);
     return score !== null && (top === null || score > top) ? score : top;
   }, null);
 
-function matchEffects(effects: Effect[], query: EffectQuery): number | null {
+function matchEffects(effects: Effect[], query: EffectQuery, world?: CardWorld): number | null {
   let top: number | null = null;
   let topDoes: number | null = null;
   let topReacts: number | null = null;
@@ -115,8 +181,8 @@ function matchEffects(effects: Effect[], query: EffectQuery): number | null {
     if (query.quick && effect.timing !== "quick") continue;
     if (query.worksFrom && !effect.location.includes(query.worksFrom)) continue;
     // Paying a cost also makes the thing happen, so "send from Deck to GY" includes cards that do it as a cost.
-    const does = query.does ? best([...effect.actions, ...effect.costs], query.does) : 0;
-    const reacts = query.reactsTo ? best(effect.triggers, query.reactsTo) : 0;
+    const does = query.does ? best([...effect.actions, ...effect.costs], query.does, world) : 0;
+    const reacts = query.reactsTo ? best(effect.triggers, query.reactsTo, world) : 0;
     if (does !== null && (topDoes === null || does > topDoes)) topDoes = does;
     if (reacts !== null && (topReacts === null || reacts > topReacts)) topReacts = reacts;
     if (does !== null && reacts !== null) consider(does + reacts + (query.does && query.reactsTo ? SAME_EFFECT_BONUS : 0));
@@ -161,7 +227,7 @@ function ownWords(card: Card): string {
 }
 
 /** Null when the card does not satisfy the query. Otherwise its specificity: higher fits more exactly. */
-export function matchCard(card: Card, tags: CardTags | undefined, query: EffectQuery): number | null {
+export function matchCard(card: Card, tags: CardTags | undefined, query: EffectQuery, world?: CardWorld): number | null {
   if (!matchCardItself(card, query.card)) return null;
   if (query.mentions?.length) {
     const words = ownWords(card);
@@ -177,5 +243,5 @@ export function matchCard(card: Card, tags: CardTags | undefined, query: EffectQ
   if (!query.roles.every((role) => tags.roles.includes(role))) return null;
   if (query.supports && !matchSupports(card, tags, query.supports)) return null;
   if (!query.does && !query.reactsTo && !query.quick && !query.worksFrom) return 0;
-  return matchEffects(tags.effects, query);
+  return matchEffects(tags.effects, query, world);
 }

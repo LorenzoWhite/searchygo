@@ -2,6 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { FEATURES } from "@/lib/features";
+import { ReportDialog, type ReportSubject } from "./report-dialog";
 import { SORTS, SORT_DIRECTIONS, type SortBy, type SortDirection } from "@/lib/sort";
 import { ATTRIBUTES, FORMATS, MD_RARITIES, MD_RARITY_NAMES, MONSTER_TYPES, type Card, type CardKind, type MasterDuelRarity } from "@/lib/card";
 import { copiesOf, deckSize, homeSection, whyNot } from "@/lib/deck";
@@ -244,6 +245,8 @@ export function SearchApp() {
   };
   /** On a phone the filters are folded away until asked for; a wider screen always shows them. */
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  /** The report being written, about a synergy or counter result. */
+  const [report, setReport] = useState<ReportSubject | null>(null);
   /** TCG sets for the set filter's suggestions, fetched the first time the advanced search opens. */
   const [setNames, setSetNames] = useState<{ name: string; code: string }[]>([]);
   const [hint, setHint] = useState(0);
@@ -405,6 +408,10 @@ export function SearchApp() {
     const notes = deck.notes.get(id);
     return card ? [{ card, summary: notes?.summary, roles: notes?.roles ?? [] }] : [];
   });
+  // Synergy and counter results can be reported; the deck they are for goes with the report.
+  const reportDeck = data?.counters?.archetype ?? (data?.synergy ? [data.synergy.archetype, data.synergy.partner?.archetype].filter(Boolean).join(" + ") : undefined);
+  const reportCard = FEATURES.reports && reportDeck ? (card: Card) => setReport({ kind: "mismatch", card: { id: card.id, name: card.name } }) : undefined;
+
   /** Swaps the results for the cards related to one card, as a search anyone can share or edit. */
   const showRelated = (card: Card) => {
     setText(`related to ${card.name}`);
@@ -888,6 +895,11 @@ export function SearchApp() {
                       {data.counters.with ? `Only cards that also work with ${data.counters.with} are shown. ` : "The answers players side against it come first. "}
                       A model worked this out from the archetype’s cards, so these are suggestions to check, not rulings.
                     </p>
+                    {FEATURES.reports && (
+                      <button type="button" className="button button--quiet synergy__suggest" aria-haspopup="dialog" onClick={() => setReport({ kind: "suggestion" })}>
+                        Suggest a card
+                      </button>
+                    )}
                   </div>
                 )}
 
@@ -917,6 +929,11 @@ export function SearchApp() {
                   <p className="synergy__note">
                     A model worked this out from the archetype’s cards, so these are suggestions to check, not rulings.
                   </p>
+                  {FEATURES.reports && (
+                    <button type="button" className="button button--quiet synergy__suggest" aria-haspopup="dialog" onClick={() => setReport({ kind: "suggestion" })}>
+                      Suggest a card
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -1000,7 +1017,13 @@ export function SearchApp() {
                       view === "gallery" ? (
                         <GalleryCard key={result.card.id} result={result} copies={copiesOf(deck.deck, result.card.id)} onOpen={() => setOpened(index)} />
                       ) : (
-                        <CardRow key={result.card.id} result={result} slot={slotFor(result.card)} onRelated={FEATURES.related ? showRelated : undefined} />
+                        <CardRow
+                          key={result.card.id}
+                          result={result}
+                          slot={slotFor(result.card)}
+                          onRelated={FEATURES.related ? showRelated : undefined}
+                          onReport={reportCard}
+                        />
                       ),
                     )}
                   </ol>
@@ -1050,7 +1073,16 @@ export function SearchApp() {
       </button>
       {/* On a screen too narrow to hold both, the panel lies over the search and this dims what is behind it. */}
       <div className="scrim" aria-hidden="true" onClick={closeDeck} />
-      <CardDialog results={data?.results ?? []} index={opened} slotFor={slotFor} onMove={setOpened} onClose={() => setOpened(null)} onRelated={FEATURES.related ? showRelated : undefined} />
+      <CardDialog
+        results={data?.results ?? []}
+        index={opened}
+        slotFor={slotFor}
+        onMove={setOpened}
+        onClose={() => setOpened(null)}
+        onRelated={FEATURES.related ? showRelated : undefined}
+        onReport={reportCard}
+      />
+      <ReportDialog subject={report} search={text} deck={reportDeck} onClose={() => setReport(null)} />
       <CardDialog
         results={deckResults}
         index={deckOpened && deckOpened.index < deckResults.length ? deckOpened.index : null}

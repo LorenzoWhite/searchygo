@@ -6,4 +6,6 @@
 export const FEATURES = {
   /** "Related cards": the button on each card and "related to X" searches. */
   related: process.env.NEXT_PUBLIC_SEARCHYGO_RELATED === "1",
+  /** "Report a mismatch" and "Suggest a card" on synergy and counter results. Needs report storage. */
+  reports: process.env.NEXT_PUBLIC_SEARCHYGO_REPORTS === "1",
 };

@@ -15,6 +15,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
 import { appendJsonl, readJsonl } from "./models.ts";
+import { LOCAL_REPORTS, REPORT_LIST, redis, reportStore, type SiteReport } from "../src/lib/reports.ts";
 import { ENV_PATH, FEEDBACK_COMMENTS_PATH, FEEDBACK_HANDLED_PATH } from "./paths.ts";
 
 /** The site owner's channel: their own comments and replies never need handling. */
@@ -67,7 +68,8 @@ if (args.handle) {
   }
   const known = latest(readJsonl<Comment>(FEEDBACK_COMMENTS_PATH));
   const ids = args.handle.split(",").map((id) => id.trim()).filter(Boolean);
-  const unknown = ids.filter((id) => !known.has(id));
+  const reports = latest(readJsonl<SiteReport>(LOCAL_REPORTS));
+  const unknown = ids.filter((id) => !known.has(id) && !reports.has(id));
   if (unknown.length) {
     console.error(`No comment with id: ${unknown.join(", ")}.`);
     process.exit(1);
@@ -135,6 +137,8 @@ async function fetchVideo(video: string, key: string): Promise<Comment[]> {
 
 if (!args.list) {
   if (fs.existsSync(ENV_PATH)) process.loadEnvFile(ENV_PATH);
+  // The report store's keys may sit with the other machine-only settings.
+  if (fs.existsSync(`${ENV_PATH}.local`)) process.loadEnvFile(`${ENV_PATH}.local`);
   const key = process.env.YOUTUBE_API_KEY?.trim();
   if (!key) {
     console.error("YOUTUBE_API_KEY is not set in .env.");
@@ -155,7 +159,20 @@ if (!args.list) {
     }
     console.log(`${video.title} (${video.id}): ${comments.length} comments and replies.`);
   }
-  console.log(`${added} new, ${edited} edited since the last fetch.\n`);
+  console.log(`${added} new, ${edited} edited since the last fetch.`);
+
+  // Reports sent from the site ("Report a mismatch", "Suggest a card"), kept in Upstash on the live site.
+  const store = reportStore();
+  if (store) {
+    const stored = ((await redis(store, ["LRANGE", REPORT_LIST, 0, -1])) as string[]).map((raw) => JSON.parse(raw) as SiteReport);
+    const have = latest(readJsonl<SiteReport>(LOCAL_REPORTS));
+    const fresh = stored.filter((report) => !have.has(report.id));
+    for (const report of fresh) appendJsonl(LOCAL_REPORTS, report);
+    console.log(`Site reports: ${fresh.length} new (${stored.length} in all).`);
+  } else {
+    console.log("Site reports: no report store set (KV_REST_API_URL / KV_REST_API_TOKEN), so only reports sent on this machine are listed.");
+  }
+  console.log("");
 }
 
 // --- Listing what still needs a look -----------------------------------------------------------
@@ -168,6 +185,17 @@ const open = [...comments.values()].filter((comment) => {
   const done = handled.get(comment.id);
   return !done || done.at < comment.updated;
 });
+
+const openReports = [...latest(readJsonl<SiteReport>(LOCAL_REPORTS)).values()].filter((report) => !handled.has(report.id));
+if (openReports.length) {
+  console.log(`${openReports.length} site report${openReports.length === 1 ? "" : "s"} not yet handled:\n`);
+  for (const report of openReports.sort((a, b) => a.at.localeCompare(b.at))) {
+    const what = report.kind === "mismatch" ? "Mismatch" : "Suggestion";
+    console.log(`• ${report.id} · ${what} · ${report.card.name} (${report.card.id}) for ${report.deck ?? "?"} · search "${report.search}" · ${report.at.slice(0, 10)}`);
+    console.log(`    ${report.note.replace(/\s+/g, " ")}`);
+  }
+  console.log("");
+}
 
 if (!open.length) {
   console.log("Every comment has been handled.");

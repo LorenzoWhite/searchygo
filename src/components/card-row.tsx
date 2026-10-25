@@ -191,7 +191,18 @@ function Copies({ card, slot, artOf }: { card: Card; slot: DeckSlot; artOf: () =
 /** When a counter is played, as the "Stops" line says it. */
 const WHEN = { going_first: "going first", going_second: "going second", either: "either way" } as const;
 
-export function CardRow({ result, slot, onRelated }: { result: Result; slot: DeckSlot; onRelated?: (card: Card) => void }) {
+export function CardRow({
+  result,
+  slot,
+  onRelated,
+  onReport,
+}: {
+  result: Result;
+  slot: DeckSlot;
+  onRelated?: (card: Card) => void;
+  /** On synergy and counter results: report that this card cannot work with the deck. */
+  onReport?: (card: Card) => void;
+}) {
   const { card, summary, roles, fits, stops, answer, related } = result;
   const frame = frameOf(card);
   const isMonster = card.kind === "monster";
@@ -227,6 +238,11 @@ export function CardRow({ result, slot, onRelated }: { result: Result; slot: Dec
         {onRelated && (
           <button type="button" className="tile__related" onClick={() => onRelated(card)}>
             Related cards
+          </button>
+        )}
+        {onReport && (
+          <button type="button" className="tile__related" aria-haspopup="dialog" onClick={() => onReport(card)}>
+            Report a mismatch
           </button>
         )}
       </div>

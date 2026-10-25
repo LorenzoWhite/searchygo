@@ -10,9 +10,10 @@ import { matchCard } from "./effect-match.ts";
 import { buildArchetypeMatcher, interpret, type EffectQuery } from "./query.ts";
 import { findCounters, type CounterProfile, type Timing } from "./counters.ts";
 import { SORT_DIRECTIONS, type SortBy, type SortDirection } from "./sort.ts";
+import { NO_OVERRIDES, type DeckOverrides, type Overrides } from "./reports.ts";
 import { setsMatching, type SetsFile } from "./sets.ts";
 import { fitsCardStats } from "./stats.ts";
-import { belongsTo, findPartners, type ArchetypeProfile } from "./synergy.ts";
+import { belongsTo, findPartners, worldOf, type ArchetypeProfile } from "./synergy.ts";
 import type { CardTags } from "./tags.ts";
 import { tokenize } from "./text.ts";
 
@@ -289,6 +290,8 @@ export class SearchIndex {
     readonly sets: SetsFile = { sets: [], cards: {} },
     /** Related-card searches answer only when this is on (it is off on the live site while they are tried out). */
     private readonly relatedOn = true,
+    /** Fixes approved from people's reports: cards left out of, or added to, a deck's results. */
+    private readonly overrides: Overrides = NO_OVERRIDES,
   ) {
     for (const [archetype, profile] of profiles) this.profiles.set(archetype.toLowerCase(), { archetype, profile });
     for (const [archetype, profile] of counterProfiles) this.counterProfiles.set(archetype.toLowerCase(), { archetype, profile });
@@ -336,6 +339,12 @@ export class SearchIndex {
     return this.byId.get(id);
   }
 
+  /** Looks a card up by its full name, ignoring case and stray punctuation ("maxx c"). */
+  cardNamed(name: string): Card | undefined {
+    const found = this.relatedLinks().entryByName.get(plainName(name));
+    return found === undefined ? undefined : this.entries[found]!.card;
+  }
+
   /** What the tags say about a card, shown when it is opened: its summary and its roles. */
   notes(id: number): CardNotes {
     const tags = this.tagsByCard.get(id);
@@ -366,7 +375,7 @@ export class SearchIndex {
       const leftover = [...new Set(tokenize(reading.query.text))];
       return {
         chips: reading.chips,
-        covers: (entry) => matchCard(entry.card, entry.tags, reading.query) !== null && leftover.every((term) => entry.terms.has(term)),
+        covers: (entry) => matchCard(entry.card, entry.tags, reading.query, worldOf(this.entries)) !== null && leftover.every((term) => entry.terms.has(term)),
       };
     }
 
@@ -631,7 +640,8 @@ export class SearchIndex {
       const { hooks, partners } = this.partnersOf(fit);
       fitsOf = new Map(partners.map(({ index, fits }) => [index, fits.map((at) => hooks[at]!.hook.label)]));
     }
-    const fitting = counters.filter(({ index }) => matchesFilters(this.entries[index]!) && (!fitsOf || fitsOf.has(index)));
+    const listed = this.withOverrides(counters, this.overrides.counters[archetype], (index, why) => ({ index, answer: { name: this.entries[index]!.card.name, why, when: "either" as const }, stops: [] }));
+    const fitting = listed.filter(({ index }) => matchesFilters(this.entries[index]!) && (!fitsOf || fitsOf.has(index)));
     // An answer you cannot play is little help: cards Forbidden on the list that applies (the OCG's
     // for an OCG format, otherwise the TCG's) keep their order but come after the legal ones.
     const forbidden = ({ index }: (typeof fitting)[number]) => {
@@ -670,13 +680,18 @@ export class SearchIndex {
   private searchSynergy(key: string, matchesFilters: (entry: Entry) => boolean, query: SearchQuery): SearchResult {
     const { archetype, profile } = this.profiles.get(key)!;
     const { hooks, partners } = this.partnersOf(key);
-    const fitting = partners.filter(({ index }) => matchesFilters(this.entries[index]!));
+    const listed = this.withOverrides(
+      partners.map(({ index, fits }) => ({ index, fits: fits.map((at) => hooks[at]!.hook.label) })),
+      this.overrides.synergy[archetype],
+      (index, why) => ({ index, fits: [`Suggested by players: ${why}`] }),
+    );
+    const fitting = listed.filter(({ index }) => matchesFilters(this.entries[index]!));
     const offset = query.offset ?? 0;
     return {
       total: fitting.length,
       hits: arrange(fitting, ({ index }) => this.entries[index]!.card, query).slice(offset, offset + (query.limit ?? 30)).map(({ index, fits }) => {
         const { card, tags } = this.entries[index]!;
-        return { card, tags, score: fits.length, fits: fits.map((at) => hooks[at]!.hook.label) };
+        return { card, tags, score: fits.length, fits };
       }),
       reading: { chips: [`Synergy with: ${archetype}`], matched: true },
       synergy: {
@@ -685,6 +700,23 @@ export class SearchIndex {
         hooks: hooks.filter(({ ignored, matches }) => !ignored && matches > 0).map(({ hook, matches }) => ({ label: hook.label, why: hook.why, matches })),
       },
     };
+  }
+
+  /**
+   * Applies the fixes approved for one deck: leaves out the cards that cannot work with it, and puts
+   * the cards players showed do work at the front, each saying why.
+   */
+  private withOverrides<T extends { index: number }>(list: T[], fixes: DeckOverrides | undefined, make: (index: number, why: string) => T): T[] {
+    if (!fixes) return list;
+    const links = this.relatedLinks();
+    const excluded = new Set((fixes.exclude ?? []).map((id) => links.entryById.get(this.byId.get(id)?.id ?? -1)));
+    const kept = list.filter(({ index }) => !excluded.has(index));
+    const present = new Set(kept.map(({ index }) => index));
+    const added = (fixes.include ?? []).flatMap(({ id, why }) => {
+      const index = links.entryById.get(this.byId.get(id)?.id ?? -1);
+      return index === undefined || present.has(index) ? [] : [make(index, why)];
+    });
+    return [...added, ...kept];
   }
 
   /** Reads the search as an effect query, unless it is better taken as a card name. */
@@ -718,7 +750,7 @@ export class SearchIndex {
     let candidates: (Scored & { matchedTerms: number })[] = [];
     for (const [index, entry] of this.entries.entries()) {
       if (!matchesFilters(entry)) continue;
-      const specificity = matchCard(entry.card, entry.tags, query);
+      const specificity = matchCard(entry.card, entry.tags, query, worldOf(this.entries));
       if (specificity === null) continue;
       candidates.push({ entry, score: specificity, matchedTerms: textScores?.get(index)?.matched ?? 0 });
     }

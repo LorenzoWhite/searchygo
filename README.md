@@ -65,8 +65,8 @@ Card data comes from [YGOPRODeck](https://ygoprodeck.com/api-guide/). Their term
 images are downloaded and self-hosted rather than hotlinked, so `pnpm cards:images` downloads the
 small images into `public/cards/` (about 400 MB, not committed).
 
-Players' names for kinds of card ("recruiters", "floaters", "tutors") are read as the effect they
-describe (`PLAYER_TERMS` in `src/lib/query.ts`), so they work like any other effect search.
+Players' names for kinds of card ("recruiters", "floaters", "tutors", "trap monsters") are read as the
+effect they describe (`PLAYER_TERMS` in `src/lib/query.ts`), so they work like any other effect search.
 "GY effects", "effects in the hand" and "while banished" ask where the card is when its effect is
 used, which every card's tags record. "self mill" and "self-banish" mean doing it to your own cards; "Normal
 Monster support" (or Tuner, Ritual, Pendulum… support) finds cards whose own text names that kind of
@@ -81,6 +81,14 @@ understood too, and the advanced search can limit results to either Deck. Experi
 `NEXT_PUBLIC_SEARCHYGO_RELATED=1` is set (see `src/lib/features.ts`): a "Related cards" button on every
 card, showing the cards that name it, the cards it names, the rest of its archetype and cards that
 support that archetype (also typed as "related to Dark Magician", or `?related=<passcode>`).
+
+Where `NEXT_PUBLIC_SEARCHYGO_REPORTS=1` is set, synergy and counter results have "Report a mismatch"
+(saying how the card fails to work) and "Suggest a card". Reports go to Upstash Redis
+(`KV_REST_API_URL` / `KV_REST_API_TOKEN`, as Vercel's Upstash integration sets them), or to
+`data/feedback/site-reports.jsonl` when running locally without it; `pnpm feedback:fetch` pulls them in
+with the YouTube comments (`src/lib/reports.ts`, `src/app/api/report/route.ts`). Approved fixes go in
+`data/overrides.json`: per deck, cards to leave out (`exclude`, passcodes) and cards to add
+(`include`, with the reason shown on the result).
 
 Cards can also be filtered by format (TCG, OCG, Master Duel, Duel Links, Speed Duel, GOAT, OCG GOAT,
 Edison, Common Charity, as YGOPRODeck lists them) and by the year they first came out: in the OCG

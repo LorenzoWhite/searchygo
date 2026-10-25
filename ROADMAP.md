@@ -81,7 +81,12 @@ themselves, with nothing to run by hand.
 
 - **Cards a card counters.** The reverse of counters, shown on each card: "Counters: Tearlaments,
   Branded, Kashtira…".
-- **Report a problem.** A link on each card or search to say a result is wrong.
+- **Report a problem.** "Report a mismatch" on each synergy and counter result (saying how the card
+  fails to work) and "Suggest a card" under those panels. Reports are checked against card text in
+  feedback triage; only cards that cannot work are taken out, and approved fixes go in
+  `data/overrides.json`. *Status:* built, on locally (`NEXT_PUBLIC_SEARCHYGO_REPORTS=1`); the live
+  site needs Upstash Redis connected in Vercel first, then the same variable. Later, possibly: the
+  same link on ordinary searches.
 - **Shareable deck links.** Open a deck from a link, without importing a file.
 - **Failed-search log.** Note searches that find nothing or get read badly, to see what to teach the
   reader next.

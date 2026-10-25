@@ -33,7 +33,7 @@ export function cleanTags(card: Card, tags: CardTags): CardTags {
     archetypes: filter.archetypes.filter(quoted),
     names: filter.names.filter(quoted),
   });
-  const cleanEvent = (event: GameEvent): GameEvent => restoreMention({ ...event, what: cleanFilter(event.what) });
+  const cleanEvent = (event: GameEvent): GameEvent => restoreNamedTarget(restoreMention({ ...event, what: cleanFilter(event.what) }));
 
   // "add 1 Spell/Trap that mentions "Blue-Eyes White Dragon"": a condition the tagging sometimes drops,
   // which turns a card-locked searcher into one that seems to fetch any Spell/Trap. Each such phrase
@@ -48,6 +48,20 @@ export function cleanTags(card: Card, tags: CardTags): CardTags {
     const noun = clause.slice(command.index! + command[0].length);
     return [{ verb: COMMAND_VERBS[command[1]!.toLowerCase()]!, kinds: CARD_KINDS.filter((kind) => new RegExp(`\\b${kind}`, "i").test(noun.split(",").pop()!)), name: match[1]! }];
   });
+  // "send any number of "Volcanic Scattershot" from your hand and/or Deck": a named target the tagging
+  // sometimes drops, which makes an effect that only moves copies of itself look like it moves anything.
+  // A quoted name followed by "card(s)" or "monster(s)" is an archetype; on its own, a card.
+  const namedTargets = [
+    ...text.matchAll(/\b(Add|Special Summon|Send|Set|Place|Banish|Shuffle|Return) (?:up to \d+ |any number of |\d+ |a |an )?(?:other |copies of )?"([^"]+)"( (?:cards?|monsters?|Spells?|Traps?|Spell\/Traps?)\b)?/gi),
+  ].map(([, command, name, kind]) => ({ verb: COMMAND_VERBS[command!.toLowerCase()]!, name: name!, archetype: !!kind }));
+  function restoreNamedTarget(event: GameEvent): GameEvent {
+    const { what } = event;
+    if (what.this_card || what.names.length || what.archetypes.length || /mention/i.test(what.other)) return event;
+    const target = namedTargets.find(({ verb }) => verb === event.verb);
+    if (!target) return event;
+    return { ...event, what: target.archetype ? { ...what, archetypes: [target.name] } : { ...what, names: [target.name] } };
+  }
+
   function restoreMention(event: GameEvent): GameEvent {
     const { what } = event;
     if (what.this_card || what.names.length || what.archetypes.length || /mention/i.test(what.other)) return event;
