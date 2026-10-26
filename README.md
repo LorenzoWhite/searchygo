@@ -65,8 +65,9 @@ Card data comes from [YGOPRODeck](https://ygoprodeck.com/api-guide/). Their term
 images are downloaded and self-hosted rather than hotlinked, so `pnpm cards:images` downloads the
 small images into `public/cards/` (about 400 MB, not committed).
 
-Players' names for kinds of card ("recruiters", "floaters", "tutors", "trap monsters") are read as the
-effect they describe (`PLAYER_TERMS` in `src/lib/query.ts`), so they work like any other effect search.
+Players' names for kinds of card ("recruiters", "floaters", "tutors") are read as the effect they
+describe (`PLAYER_TERMS` in `src/lib/query.ts`), so they work like any other effect search. Trap monsters (Traps that Special Summon themselves) get a
+"trap monster" role from their card text when the data loads (`isTrapMonster` in `src/lib/card.ts`).
 "GY effects", "effects in the hand" and "while banished" ask where the card is when its effect is
 used, which every card's tags record. "self mill" and "self-banish" mean doing it to your own cards; "Normal
 Monster support" (or Tuner, Ritual, Pendulum… support) finds cards whose own text names that kind of

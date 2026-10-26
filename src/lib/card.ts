@@ -147,6 +147,14 @@ export function isBarredFromGenesys(card: Pick<Card, "subtypes">): boolean {
   return card.subtypes.includes("link") || card.subtypes.includes("pendulum");
 }
 
+/**
+ * Trap monsters: Trap Cards that Special Summon themselves as monsters (Tiki Curse, Paleozoic, The Phantom
+ * Knights). The text always says so: "Special Summon this card (in Defense Position) as a Normal Monster…".
+ */
+export function isTrapMonster(card: Pick<Card, "kind" | "text">): boolean {
+  return card.kind === "trap" && /Special Summon this card\b[^.]*?\bas (?:a|an) (?:\w+ )?Monster\b/i.test(card.text);
+}
+
 /** Normal Monsters without a Pendulum Effect have only flavor text, so there is nothing to tag. */
 export function hasNoEffectText(card: Card): boolean {
   return card.kind === "monster" && card.subtypes.includes("normal") && !card.pendulumText;

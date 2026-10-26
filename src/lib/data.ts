@@ -1,7 +1,7 @@
 /** Server-only: loads the card data and tags from disk once and keeps the search index in memory. */
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { Card } from "./card.ts";
+import { isTrapMonster, type Card } from "./card.ts";
 import { SearchIndex } from "./search.ts";
 import type { CounterProfile, CounteredArchetype } from "./counters.ts";
 import { FEATURES } from "./features.ts";
@@ -22,6 +22,14 @@ async function load(): Promise<SearchIndex> {
     if (!line) continue;
     const row = JSON.parse(line) as TaggedCard;
     tagsById.set(row.id, row.tags);
+  }
+  // Trap monsters are read from the card text rather than left to the tagging model, so every one has
+  // the role and no other card does.
+  for (const card of cards) {
+    const tags = tagsById.get(card.id);
+    if (!tags) continue;
+    const roles = tags.roles.filter((role) => role !== "trap_monster");
+    tags.roles = isTrapMonster(card) ? [...roles, "trap_monster"] : roles;
   }
 
   const profiles = new Map<string, ArchetypeProfile>();

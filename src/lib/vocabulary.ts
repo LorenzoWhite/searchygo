@@ -134,4 +134,5 @@ export const ROLES = {
   token_generator: "Creates Tokens",
   summon_enabler: "Its effect performs a Fusion, Ritual, Synchro, Xyz, Link or Pendulum Summon",
   alternate_win: "Wins or helps win the Duel by an alternate condition",
+  trap_monster: "A Trap Card that Special Summons itself as a monster",
 } as const;

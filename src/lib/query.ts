@@ -164,6 +164,7 @@ const VERB_RULES: VerbRule[] = [
 
 const ROLE_RULES: [RegExp, Role][] = [
   [/\bhand ?traps?\b/, "hand_trap"],
+  [/\btrap[- ]monsters?\b/, "trap_monster"],
   [/\bfloodgates?\b|\blockdown\b/, "floodgate"],
   [/\bboard ?breakers?\b|\bgoing second\b/, "board_breaker"],
   [/\b(?:board|field) ?wipes?\b|\bmass removal\b|\bnukes?\b/, "mass_removal"],
@@ -340,8 +341,6 @@ const PLAYER_TERMS: [RegExp, string][] = [
   [/\brecruiters?\b/g, "when destroyed by battle special summon a monster from the deck"],
   [/\bfloaters?\b/g, "when this card is destroyed special summon a monster"],
   [/\btutors?\b/g, "searchers"],
-  // Trap Cards that Special Summon themselves as monsters (Tiki Curse, Paleozoic, The Phantom Knights).
-  [/\btrap[- ]monsters?\b/g, "traps that special summon themselves as monsters"],
   // "self mill", "self-banish": doing it to your own cards.
   [/\bself[- ]?(mill\w*|banish\w*|destr\w*|discard\w*|tribut\w*|bounc\w*|send\w*|dump\w*)\b/g, "$1 your own"],
 ];
