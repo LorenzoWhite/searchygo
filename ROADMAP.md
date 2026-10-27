@@ -156,6 +156,7 @@ Ideas written down but not planned, because the search already covers them anoth
 
 ## Done
 
+- "Stops X" searches: "floodgate that stops searching", "stops Spells", "can't be banished", "skip the Battle Phase"
 - Related cards, phase 1: names it, named on it, same archetype, archetype support
 - Advanced search panel; search by ATK/DEF; TCG set filter
 - Result sorting: name, ATK, DEF, Level/Rank/Link, release date, popularity, either direction

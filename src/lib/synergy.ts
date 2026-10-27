@@ -7,7 +7,7 @@
  * here, so a synergy search costs nothing to answer.
  */
 import * as z from "zod";
-import { ATTRIBUTES, CARD_KINDS, MONSTER_TYPES, SUBTYPES, type Card } from "./card.ts";
+import { ATTRIBUTES, CARD_KINDS, inArchetype, MONSTER_TYPES, SUBTYPES, type Card } from "./card.ts";
 import { buildCardWorld, matchCard, type CardWorld } from "./effect-match.ts";
 import type { EffectQuery, EventQuery, ObjectQuery } from "./query.ts";
 import type { CardTags } from "./tags.ts";
@@ -238,8 +238,7 @@ export interface Partner {
   fits: number[];
 }
 
-export const belongsTo = (card: Card, archetype: string) =>
-  card.archetype?.toLowerCase() === archetype.toLowerCase() || card.name.toLowerCase().includes(archetype.toLowerCase());
+export const belongsTo = (card: Card, archetype: string) => inArchetype(card, archetype);
 
 /**
  * Finds the cards outside an archetype that its profile describes.

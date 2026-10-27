@@ -148,6 +148,18 @@ export function isBarredFromGenesys(card: Pick<Card, "subtypes">): boolean {
 }
 
 /**
+ * Archetypes the card data files cards under although no card text counts them by name, so a card
+ * whose name holds the word is not one of them: Card of Demise is not one of Ruin and Demise's cards.
+ */
+const FILED_ONLY_ARCHETYPES = new Set(["demise"]);
+
+/** Whether a card is one of an archetype's: filed under it, or (as card text counts them) named with it. */
+export function inArchetype(card: Pick<Card, "name" | "archetype">, archetype: string): boolean {
+  const key = archetype.toLowerCase();
+  return card.archetype?.toLowerCase() === key || (!FILED_ONLY_ARCHETYPES.has(key) && card.name.toLowerCase().includes(key));
+}
+
+/**
  * Trap monsters: Trap Cards that Special Summon themselves as monsters (Tiki Curse, Paleozoic, The Phantom
  * Knights). The text always says so: "Special Summon this card (in Defense Position) as a Normal Monster…".
  */

@@ -35,6 +35,12 @@ export interface EventQuery {
   /** The event must be about the card itself ("Special Summons itself", "when it is banished"). */
   self: boolean;
   object: ObjectQuery;
+  /**
+   * For locks the tags only describe in words ("cannot add cards from the Deck to the hand"): a pattern
+   * (regular expression source) the event's note must match, and how to say it.
+   */
+  note?: string;
+  label?: string;
   /** "Generic": the effect must not be locked to an archetype or a named card. */
   generic?: boolean;
 }
@@ -87,22 +93,65 @@ interface VerbRule {
   from?: Zone;
   /** Resolved by where the cards go: "return ... to the hand" versus "return ... to the Deck". */
   generic?: "return" | "send" | "summon";
+  /** For a lock the tags describe only in words: what its note must say (see EventQuery.note). */
+  note?: string;
+  label?: string;
   /** Only meaningful as something a card reacts to ("when your opponent activates..."). */
   triggerOnly?: boolean;
   /** Always something a card reacts to, even without "when" or "if". */
   alwaysTrigger?: boolean;
 }
 
-const CANNOT = "(?:can(?:no|')?t|cannot|can not|stops?|prevents?|blocks?|locks?|restricts?)";
+const CANNOT = "(?:can(?:no|')?t|cannot|can not|stops?|prevents?|blocks?|locks?|restricts?|shuts? down)";
+/** "stops your opponent from …", "prevents cards from …": who or what is stopped, said between. */
+const STOPPED = "(?:(?:your |the |their |each |either |both |all )?(?:opponents?|players?|cards?|monsters?)(?:'s)? (?:from )?)?";
+const STOPS = `\\b${CANNOT} ${STOPPED}`;
+/** Locks with no verb of their own in the tags: the note says what is stopped. */
+const LOCKS: Verb[] = ["restrict_other", "prevent_other"];
 
 // Checked in order, so the specific phrasings come before the general ones they contain.
 const VERB_RULES: VerbRule[] = [
-  { pattern: new RegExp(`\\b${CANNOT} (?:\\w+ )?(?:be )?(?:special(?:ly)? |normal )?summon\\w*`), verbs: ["restrict_summon"] },
-  { pattern: new RegExp(`\\b${CANNOT} (?:\\w+ )?activat\\w+`), verbs: ["restrict_activation"] },
-  { pattern: new RegExp(`\\b${CANNOT} (?:\\w+ )?attack\\w*`), verbs: ["restrict_attack"] },
+  // "stops searching", "prevents drawing", "can't Set", "cards can't be banished", "skip the Battle Phase".
+  {
+    // "adding cards" only before "from"/"to", which are read on their own ("from the Deck").
+    pattern: new RegExp(`${STOPS}(?:search\\w*|tutor\\w*|add\\w*(?: cards?)?(?= (?:from|to)\\b)|deck (?:adds?|search\\w*))`),
+    verbs: LOCKS,
+    note: "add\\w*[^.|]*from[^.|]*deck|search",
+    label: "stop searching",
+  },
+  { pattern: new RegExp(`${STOPS}(?:be |being )?draw\\w*`), verbs: LOCKS, note: "(?:cannot|can't|not|skip)[^.|]{0,30}draw|draw phase", label: "stop drawing" },
+  {
+    pattern: new RegExp(`${STOPS}(?:be |being )?set(?:ting)?\\b`),
+    verbs: LOCKS,
+    note: "(?:cannot|can't)[^.|]{0,20}\\bset\\b|\\bset\\b[^.|]{0,20}(?:cannot|can't)",
+    label: "stop Setting",
+  },
+  {
+    pattern: new RegExp(`${STOPS}(?:be |being )?banish\\w*`),
+    verbs: LOCKS,
+    note: "(?:cannot|can't)[^.|]{0,25}banish|banish[^.|]{0,10}(?:cannot|can't)",
+    label: "stop banishing",
+  },
+  {
+    pattern: new RegExp(`(?:${STOPS}(?:conduct\\w* |enter\\w* )?|\\bskip\\w* )(?:the |their |your |a )?(?:next )?battle phases?`),
+    verbs: LOCKS,
+    note: "battle phase|cannot conduct",
+    label: "stop the Battle Phase",
+  },
+  { pattern: new RegExp(`${STOPS}(?:\\w+ )?(?:be )?(?:special(?:ly)? |normal )?summon\\w*`), verbs: ["restrict_summon"] },
+  { pattern: new RegExp(`${STOPS}(?:\\w+ )?activat\\w+`), verbs: ["restrict_activation"] },
+  { pattern: new RegExp(`${STOPS}(?:\\w+ )?attack\\w*`), verbs: ["restrict_attack"] },
   { pattern: /\b(?:can(?:no|')?t|cannot|can not) be (?:destroyed|destroy)\b|\bindestructible\b|\b(?:immune to|protect\w* from) destruction\b|\bdestruction protection\b/, verbs: ["prevent_destruction"] },
   { pattern: /\b(?:can(?:no|')?t|cannot|can not) be target\w*|\buntargetable\b|\btargeting protection\b/, verbs: ["prevent_targeting"] },
   { pattern: /\bunaffected\b|\bimmune\b/, verbs: ["unaffected"] },
+  // "stops Spells", "shuts down the opponent's monster effects": stopping them being activated. Only the
+  // stopping word is taken, so what is stopped is read as usual.
+  {
+    pattern: new RegExp(
+      `\\b${CANNOT} (?:(?:your |the |their )?(?:opponents?|players?)(?:'s)? (?:from )?)?(?=(?:the |their |your )?(?:spells?|traps?|spell/traps?|spells? and traps?|monster effects?|effects?|cards?|quick effects?)\\b)`,
+    ),
+    verbs: ["restrict_activation"],
+  },
 
   { pattern: /\bnegat\w* (?:the |an? )?(?:special |normal )?summons?\b/, verbs: ["negate_summon"] },
   { pattern: /\bnegat\w* (?:the |an? )?attacks?\b/, verbs: ["negate_attack"] },
@@ -319,13 +368,25 @@ const VOCABULARY_WORDS = new Set([
   ..."monster spell trap tuner xyz synchro fusion link ritual pendulum token normal effect field equip continuous counter flip union spirit gemini".split(" "),
 ]);
 
+/**
+ * What players call an archetype when the card data names it differently: the database files Ruin and
+ * Demise under "Demise" alone.
+ */
+export const ARCHETYPE_NICKNAMES: Record<string, string> = {
+  "ruin & demise": "Demise",
+  "ruin and demise": "Demise",
+};
+
 export function buildArchetypeMatcher(names: Iterable<string>): (text: string) => { name: string; start: number; end: number }[] {
   const byKey = new Map<string, string>();
-  for (const name of names) {
+  const known = new Set(names);
+  for (const name of known) {
     const key = name.toLowerCase();
     const ordinary = key.split(/[- ]+/).every((word) => VOCABULARY_WORDS.has(word) || AMBIGUOUS_ARCHETYPES.has(word));
     if (key.length >= 3 && !ordinary) byKey.set(key, name);
   }
+  // A nickname is never ambiguous, even when the name it stands for is ("Demise" is also Card of Demise).
+  for (const [nickname, name] of Object.entries(ARCHETYPE_NICKNAMES)) if (known.has(name)) byKey.set(nickname, name);
   if (!byKey.size) return () => [];
   const alternatives = [...byKey.keys()].sort((a, b) => b.length - a.length).map(escapeRegExp).join("|");
   const pattern = new RegExp(`(?<![\\w-])(?:${alternatives})(?![\\w-])`, "g");
@@ -494,6 +555,8 @@ export function interpret(
           unused.push(mark);
           break;
         }
+        // "stops your opponent from searching" names who is stopped inside the phrase.
+        if (/\bopponent/.test(text.slice(mark.start, mark.end))) targetEvent()!.player = "opponent";
         if (subject) {
           targetEvent()!.player ??= subject.type === "opponent" ? "opponent" : "you";
           unused.splice(unused.indexOf(subject), 1);
@@ -567,6 +630,8 @@ export function interpret(
     if (rule.generic === "send") event.verbs = event.to === "hand" ? ["return_to_hand"] : event.to === "deck" ? ["return_to_deck"] : ["send_to_gy"];
     if (rule.generic === "summon" && event === reactsTo) event.verbs = ["normal_summon", "special_summon"];
     if (rule.from && !event.from.length) event.from = [rule.from];
+    // A lock's note says where it applies ("from the Deck to the hand"), so zones are not checked again.
+    if (rule.note) event.from = [];
     // "Special Summon tokens" is its own event in the tags.
     if (event.object.subtypes.includes("token") && event.verbs.includes("special_summon")) {
       event.verbs = ["summon_token"];
@@ -599,12 +664,13 @@ export function interpret(
   }
   if (!isEmptyObject(supports)) query.supports = supports;
 
-  const strip = ({ verbs, from, player, self, object }: EventQuery): EventQuery => ({
+  const strip = ({ verbs, from, player, self, object, rule }: ReturnType<typeof newEvent>): EventQuery => ({
     verbs,
     from: [...new Set(from)],
     player,
     self,
     object,
+    ...(rule?.note ? { note: rule.note, label: rule.label } : {}),
     ...(query.generic ? { generic: true } : {}),
   });
   if (does) query.does = strip(does);
@@ -692,7 +758,7 @@ function describeObject(object: ObjectQuery): string {
 }
 
 function describeEvent(event: EventQuery): string {
-  const verbs = [...new Set(event.verbs.map(verbLabel))].join(" or ");
+  const verbs = event.label ?? [...new Set(event.verbs.map(verbLabel))].join(" or ");
   const what = event.self ? "itself" : describeObject(event.object);
   const owner = event.player === "opponent" ? "opponent's" : event.player === "you" ? "your" : "";
   const from = event.from.length ? `from ${owner ? owner + " " : ""}${event.from.map((zone) => ZONE_LABELS[zone]).join("/")}` : owner && `${owner} cards`;

@@ -6,7 +6,7 @@
  * allows what was asked for, and it matches more specifically when it names the same thing than
  * when it merely does not rule it out: a card that revives WATER monsters ranks above Monster Reborn.
  */
-import { isExtraDeckCard, type Card } from "./card.ts";
+import { inArchetype, isExtraDeckCard, type Card } from "./card.ts";
 
 const EXTRA_SUBTYPES = new Set(["fusion", "synchro", "xyz", "link"]);
 
@@ -34,7 +34,7 @@ export function buildCardWorld(cards: readonly Card[]): CardWorld {
       let found = members.get(key);
       if (!found) {
         // An archetype's cards are those filed under it, and those whose name carries it, as card text counts them.
-        found = cards.filter((card) => card.archetype?.toLowerCase() === key || card.name.toLowerCase().includes(key));
+        found = cards.filter((card) => inArchetype(card, key));
         members.set(key, found);
       }
       return found;
@@ -156,6 +156,13 @@ function matchEvent(event: GameEvent, wanted: EventQuery, world?: CardWorld): nu
   const anywhere = !event.from.length && (ZONELESS.has(event.verb) || (wanted.self && event.what.this_card));
   if (wanted.from.length && !anywhere && !wanted.from.some((zone) => event.from.includes(zone))) return null;
   if (wanted.player && event.player !== wanted.player && event.player !== "either") return null;
+  if (wanted.note && !new RegExp(wanted.note).test(`${event.note} | ${event.what.other}`.toLowerCase())) return null;
+
+  // A lock with no kind of card recorded often names it in its note ("cannot activate monster effects").
+  if (event.verb.startsWith("restrict_") && wanted.object.kinds.length && !event.what.kinds.length) {
+    const said = (["monster", "spell", "trap"] as const).filter((kind) => new RegExp(`\\b${kind}`, "i").test(event.note));
+    if (said.length && !said.some((kind) => wanted.object.kinds.includes(kind))) return null;
+  }
 
   if (wanted.self) return event.what.this_card ? 1 : null;
   // An effect about the card itself says nothing about "a WATER monster".
@@ -208,9 +215,8 @@ function matchCardItself(card: Card, wanted: ObjectQuery): boolean {
 
 function matchSupports(card: Card, tags: CardTags, wanted: ObjectQuery): boolean {
   const { archetypes, types, attributes } = tags.supports;
-  const name = card.name.toLowerCase();
   return (
-    wanted.archetypes.every((asked) => name.includes(asked.toLowerCase()) || archetypes.some((archetype) => archetype.toLowerCase() === asked.toLowerCase())) &&
+    wanted.archetypes.every((asked) => inArchetype(card, asked) || archetypes.some((archetype) => archetype.toLowerCase() === asked.toLowerCase())) &&
     wanted.types.every((type) => (types as string[]).includes(type)) &&
     wanted.attributes.every((attribute) => attributes.includes(attribute))
   );

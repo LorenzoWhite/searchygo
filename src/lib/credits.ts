@@ -204,4 +204,11 @@ export const CREDITS: Credit[] = [
     status: "added",
     date: "2026-10-26",
   },
+  {
+    by: ["@KobiSheero"],
+    kind: "bug",
+    what: "Searching “Ruin & Demise” did not find the archetype, which the card data files as “Demise”",
+    status: "fixed",
+    date: "2026-10-27",
+  },
 ];

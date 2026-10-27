@@ -7,7 +7,7 @@
  */
 import { isExtraDeckCard, releaseDate, type Attribute, type Card, type CardKind, type MasterDuelRarity, type Subtype } from "./card.ts";
 import { matchCard } from "./effect-match.ts";
-import { buildArchetypeMatcher, interpret, type EffectQuery } from "./query.ts";
+import { ARCHETYPE_NICKNAMES, buildArchetypeMatcher, interpret, type EffectQuery } from "./query.ts";
 import { findCounters, type CounterProfile, type Timing } from "./counters.ts";
 import { SORT_DIRECTIONS, type SortBy, type SortDirection } from "./sort.ts";
 import { NO_OVERRIDES, type DeckOverrides, type Overrides } from "./reports.ts";
@@ -195,8 +195,8 @@ function deckNamed(phrase: string, known: ReadonlyMap<string, { archetype: strin
     .trim()
     .replace(/^(?:the|a|an|my) /, "")
     .replace(/ (?:decks?|cards?|archetype|engine|monsters|players?)$/, "");
-  // The name as typed, then without a plural "s" ("true dracos").
-  const found = known.get(name) ?? known.get(name.replace(/s$/, ""));
+  // The name as typed, then without a plural "s" ("true dracos"), then as players call it ("ruin & demise").
+  const found = known.get(name) ?? known.get(name.replace(/s$/, "")) ?? known.get(ARCHETYPE_NICKNAMES[name]?.toLowerCase() ?? "");
   return found ? found.archetype.toLowerCase() : null;
 }
 

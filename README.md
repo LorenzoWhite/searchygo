@@ -68,6 +68,10 @@ small images into `public/cards/` (about 400 MB, not committed).
 Players' names for kinds of card ("recruiters", "floaters", "tutors") are read as the effect they
 describe (`PLAYER_TERMS` in `src/lib/query.ts`), so they work like any other effect search. Trap monsters (Traps that Special Summon themselves) get a
 "trap monster" role from their card text when the data loads (`isTrapMonster` in `src/lib/card.ts`).
+"Stops X" is read as a lock on X: "floodgate that stops searching" (Droll & Lock Bird, Mistaken Arrest),
+"stops Spells", "stops your opponent from Special Summoning", "can't be banished", "skip the Battle
+Phase". Locks the tags have no verb for (searching, drawing, Setting, banishing, the Battle Phase) are
+found by what their note says.
 "GY effects", "effects in the hand" and "while banished" ask where the card is when its effect is
 used, which every card's tags record. "self mill" and "self-banish" mean doing it to your own cards; "Normal
 Monster support" (or Tuner, Ritual, Pendulum… support) finds cards whose own text names that kind of
