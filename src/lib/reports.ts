@@ -1,7 +1,7 @@
 /**
  * Reports people send from synergy and counter results: a card that cannot work with the deck it was
  * shown for ("mismatch"), or a card that does and is missing ("suggestion"). They are only collected
- * here; nothing changes until they are reviewed (see .claude/skills/ygosearchfeedback/SKILL.md).
+ * here; nothing changes until they are reviewed.
  *
  * Stored in Upstash Redis when its keys are set (Vercel's Upstash integration sets KV_REST_API_URL and
  * KV_REST_API_TOKEN); on a development machine without them, in data/feedback/site-reports.jsonl.

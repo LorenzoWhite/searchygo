@@ -1,7 +1,7 @@
 /**
  * The people who found bugs in Search YGO or suggested changes to it, shown on /credits. Names are
- * as they appear in the YouTube comments where the feedback was left. The feedback routine
- * (.claude/skills/ygosearchfeedback/SKILL.md) adds an entry whenever something someone raised is planned or done.
+ * as they appear in the YouTube comments where the feedback was left. An entry is added whenever
+ * something someone raised is planned or done.
  */
 
 export const CREDIT_STATUSES = ["added", "fixed", "coming", "planned"] as const;

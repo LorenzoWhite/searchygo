@@ -39,3 +39,5 @@ data/counters/replies.jsonl
 data/counters/*.log
 # Other people's comments, fetched for reading; kept on this machine only
 data/feedback/
+# Agent settings and skills; kept on this machine only
+.claude/
