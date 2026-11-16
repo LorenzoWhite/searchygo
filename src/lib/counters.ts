@@ -15,7 +15,7 @@
 import * as z from "zod";
 import type { Card } from "./card.ts";
 import { matchCard } from "./effect-match.ts";
-import { Hook, belongsTo, hookQuery, readHook, worldOf, type Candidate } from "./synergy.ts";
+import { Hook, belongsTo, hookQuery, printedText, readHook, worldOf, type Candidate } from "./synergy.ts";
 import { ROLES, type CardTags } from "./tags.ts";
 
 const ROLE_NAMES = Object.keys(ROLES) as [keyof typeof ROLES, ...(keyof typeof ROLES)[]];
@@ -192,7 +192,7 @@ const fitsRoles = (tags: CardTags | undefined, roles: Weakness["roles"]) => role
  * well-known: those are the ones players already own and trust.
  */
 export function findCounters(profile: CounterProfile, archetype: string, candidates: readonly Candidate[]): { weaknesses: WeaknessResult[]; counters: Counter[] } {
-  const printed = candidates.map(({ card }) => `${card.pendulumText ?? ""}\n${card.text}`.toLowerCase());
+  const printed = candidates.map(({ card }) => printedText(card));
   const outside = candidates.map(({ card }) => !belongsTo(card, archetype));
   const views = (index: number) => candidates[index]!.card.views;
 

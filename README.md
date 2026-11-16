@@ -76,7 +76,8 @@ found by what their note says.
 used, which every card's tags record. "self mill" and "self-banish" mean doing it to your own cards; "Normal
 Monster support" (or Tuner, Ritual, Pendulum… support) finds cards whose own text names that kind of
 card; "generic" leaves out effects locked to an archetype or a named card; and "synergy with X and Y"
-finds cards that work with both decks, starting with the cards from one deck that fit the other. Results
+finds cards that work with both decks, starting with the cards from one deck that fit the other. A synergy search can be narrowed to one kind of card: "Clown Crew synergy floodgate", "hand traps for
+Branded", "Branded synergy that negates". Results
 can be sorted by name, ATK, DEF, Level, release date or popularity (`sort` and `dir` in the address). Stats
 are understood in searches ("2400 ATK 1000 DEF", "0 DEF", "ATK 2000 or more", "ATK equals DEF"),
 including what an effect searches or summons ("search a monster with 300 ATK and 200 DEF"). The

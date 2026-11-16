@@ -220,6 +220,27 @@ export function worldOf(candidates: readonly Candidate[]): CardWorld {
   return world;
 }
 
+/** A list of words sharing the word after it: "tribute, ritual, or fusion summoned", "ritual or fusion monster". */
+const SHARED_WORD_LIST = /\b((?:[a-z-]+, )*[a-z-]+,? (?:or|and) [a-z-]+) (summon(?:ed|s|ing)?|monsters?)\b/g;
+
+/**
+ * A card's printed text, lower-cased, for checking a profile's phrases. A list sharing one word is
+ * also spelled out item by item, so the phrase "Tribute Summoned" finds "Tribute, Ritual, or Fusion
+ * Summoned" and "Synchro Monster" finds "Fusion, Synchro, Xyz, or Link Monster". "Normal" is not
+ * spelled out: "if this card is Normal or Special Summoned" says how a card arrived, and taken as
+ * "Normal Summoned" it would read as granting Normal Summons to every card that says it.
+ */
+export function printedText(card: Pick<Card, "text" | "pendulumText">): string {
+  const text = `${card.pendulumText ?? ""}\n${card.text}`.toLowerCase();
+  const spelled = [...text.matchAll(SHARED_WORD_LIST)].flatMap(([, list, word]) =>
+    list!
+      .split(/,? (?:or|and) |, /)
+      .filter((item) => item !== "normal")
+      .map((item) => `${item} ${word}`),
+  );
+  return spelled.length ? `${text}\n${spelled.join("\n")}` : text;
+}
+
 /** A hook that fits more than this share of all cards describes nothing in particular, and is not used. */
 const TOO_COMMON_SHARE = 0.05;
 
@@ -249,7 +270,7 @@ export const belongsTo = (card: Card, archetype: string) => inArchetype(card, ar
  * does come before the ones that merely allow it, and the well-known before the obscure.
  */
 export function findPartners(profile: ArchetypeProfile, archetype: string, candidates: readonly Candidate[]): { hooks: HookResult[]; partners: Partner[] } {
-  const printed = candidates.map(({ card }) => `${card.pendulumText ?? ""}\n${card.text}`.toLowerCase());
+  const printed = candidates.map(({ card }) => printedText(card));
   const outside = candidates.map(({ card }) => !belongsTo(card, archetype));
   const views = (index: number) => candidates[index]!.card.views;
 

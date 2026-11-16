@@ -1,4 +1,8 @@
 {
-  "synergy": {},
+  "synergy": {
+    "Clown Crew": {
+      "exclude": [4064256, 9030160, 18319762, 74875003]
+    }
+  },
   "counters": {}
 }

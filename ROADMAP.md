@@ -150,6 +150,7 @@ themselves, with nothing to run by hand.
 
 ## Done
 
+- Synergy narrowed to a kind of card: "Clown Crew synergy floodgate", "hand traps for Branded"
 - Release-year filter by TCG or OCG dates
 - "Stops X" searches: "floodgate that stops searching", "stops Spells", "can't be banished", "skip the Battle Phase"
 - Related cards, phase 1: names it, named on it, same archetype, archetype support

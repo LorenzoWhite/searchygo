@@ -7,7 +7,7 @@
  */
 import { isExtraDeckCard, releaseDate, type Attribute, type Card, type CardKind, type MasterDuelRarity, type Subtype } from "./card.ts";
 import { matchCard } from "./effect-match.ts";
-import { ARCHETYPE_NICKNAMES, buildArchetypeMatcher, interpret, type EffectQuery } from "./query.ts";
+import { ARCHETYPE_NICKNAMES, buildArchetypeMatcher, interpret, type EffectQuery, type Interpretation } from "./query.ts";
 import { findCounters, type CounterProfile, type Timing } from "./counters.ts";
 import { SORT_DIRECTIONS, type SortBy, type SortDirection } from "./sort.ts";
 import { NO_OVERRIDES, type DeckOverrides, type Overrides } from "./reports.ts";
@@ -158,6 +158,19 @@ const SYNERGY_PATTERNS = [
   /^(?:partners?|tech|splash(?:able)?(?: cards?)?) for (.+)$/,
   /^(.+?) (?:synerg(?:y|ies|istic)|partners?)(?: cards?| picks?| options?)?$/,
 ];
+/**
+ * A synergy search narrowed to one kind of card: "clown crew synergy floodgate", "branded synergy
+ * that negates", "floodgates that work with clown crew", "hand traps for branded", "synergy with
+ * branded hand traps". Each gives which group is the deck and which the kind of card; `split` means
+ * the group holds both, deck first, and is cut where the deck's name ends.
+ */
+const NARROWED_SYNERGY_PATTERNS: { pattern: RegExp; deck: 1 | 2; kind: 1 | 2; split?: true }[] = [
+  { pattern: /^(.+?) synerg(?:y|ies|istic)(?: cards?)?(?: (?:that|which)(?: are| is)?)? (.+)$/, deck: 1, kind: 2 },
+  { pattern: /^(.+?) (?:that |which )?(?:works?|goes|go|pairs?|fits?|plays?|synerg\w+) (?:well |good |nicely )?(?:with|in|into|for) (.+)$/, deck: 2, kind: 1 },
+  { pattern: /^(.+?) (?:for|in) (.+)$/, deck: 2, kind: 1 },
+  { pattern: /^(?:cards? )?synerg(?:y|ies|istic)(?: cards?)? (?:with|for) (.+)$/, deck: 1, kind: 1, split: true },
+];
+
 /**
  * The ways people ask what beats a deck. Each captures the deck's name: "counters to X", "how to
  * beat X", "what stops X", "anti-X", "cards against X", "X counters", "X side deck". They only take
@@ -411,6 +424,9 @@ export class SearchIndex {
     const synergy = query.literal ? null : this.synergyTarget(text);
     if (synergy) return this.searchSynergy(synergy, matchesFilters, query);
 
+    const narrowed = query.literal ? null : this.narrowedSynergy(text);
+    if (narrowed) return this.searchSynergy(narrowed.deck, matchesFilters, query, narrowed.kind);
+
     const reading = query.literal ? null : this.read(text);
     if (reading) {
       const scored = this.searchEffects(reading.query, matchesFilters);
@@ -427,6 +443,26 @@ export class SearchIndex {
       const target = pattern.exec(asked)?.[1];
       const known = target && deckNamed(target, this.profiles);
       if (known) return known;
+    }
+    return null;
+  }
+
+  /**
+   * A synergy search narrowed to the cards an effect search finds ("clown crew synergy floodgate"):
+   * the deck, when it has a profile, and how the rest of the search was read.
+   */
+  private narrowedSynergy(text: string): { deck: string; kind: Interpretation } | null {
+    const asked = asking(text);
+    for (const { pattern, deck, kind, split } of NARROWED_SYNERGY_PATTERNS) {
+      const match = pattern.exec(asked);
+      if (!match) continue;
+      const words = match[deck]!.split(" ");
+      const cuts = split ? words.slice(1).map((_, at) => [words.slice(0, at + 1).join(" "), words.slice(at + 1).join(" ")]) : [[match[deck]!, match[kind]!]];
+      for (const [deckPhrase, kindPhrase] of cuts) {
+        const known = deckNamed(deckPhrase!, this.profiles);
+        const reading = known ? this.read(kindPhrase!) : null;
+        if (known && reading) return { deck: known, kind: reading };
+      }
     }
     return null;
   }
@@ -678,8 +714,11 @@ export class SearchIndex {
     };
   }
 
-  /** Cards from outside an archetype that fit what its profile says the deck wants. */
-  private searchSynergy(key: string, matchesFilters: (entry: Entry) => boolean, query: SearchQuery): SearchResult {
+  /**
+   * Cards from outside an archetype that fit what its profile says the deck wants. With `kind`, only
+   * those an effect search also finds ("floodgates" in "clown crew synergy floodgate").
+   */
+  private searchSynergy(key: string, matchesFilters: (entry: Entry) => boolean, query: SearchQuery, kind?: Interpretation): SearchResult {
     const { archetype, profile } = this.profiles.get(key)!;
     const { hooks, partners } = this.partnersOf(key);
     const listed = this.withOverrides(
@@ -687,7 +726,8 @@ export class SearchIndex {
       this.overrides.synergy[archetype],
       (index, why) => ({ index, fits: [`Suggested by players: ${why}`] }),
     );
-    const fitting = listed.filter(({ index }) => matchesFilters(this.entries[index]!));
+    const ofKind = kind && new Set(this.searchEffects(kind.query, matchesFilters).map(({ entry }) => entry));
+    const fitting = listed.filter(({ index }) => matchesFilters(this.entries[index]!) && (!ofKind || ofKind.has(this.entries[index]!)));
     const offset = query.offset ?? 0;
     return {
       total: fitting.length,
@@ -695,7 +735,7 @@ export class SearchIndex {
         const { card, tags } = this.entries[index]!;
         return { card, tags, score: fits.length, fits };
       }),
-      reading: { chips: [`Synergy with: ${archetype}`], matched: true },
+      reading: { chips: [`Synergy with: ${archetype}`, ...(kind?.chips ?? [])], matched: true },
       synergy: {
         archetype,
         plan: profile.plan,
