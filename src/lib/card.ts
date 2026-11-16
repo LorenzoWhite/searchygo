@@ -125,11 +125,12 @@ export const FORMATS = ["TCG", "OCG", "Master Duel", "Duel Links", "Speed Duel",
 export type Format = (typeof FORMATS)[number];
 
 /**
- * When a card first came out, for the release-year filter: in the OCG for an OCG format, otherwise
- * in the TCG, or in the OCG for a card the TCG never had.
+ * When a card first came out, for the release-year filter. Asked for in the TCG or the OCG, it is
+ * that game's date (none for a card never released there); otherwise it is the OCG date for an OCG
+ * format, and the TCG date for the rest, or the OCG date for a card the TCG never had.
  */
-export const releaseDate = (card: Pick<Card, "tcgDate" | "ocgDate">, format?: string) =>
-  format?.startsWith("OCG") ? card.ocgDate : (card.tcgDate ?? card.ocgDate);
+export const releaseDate = (card: Pick<Card, "tcgDate" | "ocgDate">, format?: string, dates?: "tcg" | "ocg") =>
+  dates === "tcg" ? card.tcgDate : dates === "ocg" || format?.startsWith("OCG") ? card.ocgDate : (card.tcgDate ?? card.ocgDate);
 
 /** Where a card stands in a game: not printed there, on its Forbidden & Limited list, or free to play. */
 export function standingIn(card: Pick<Card, "formats" | "banTcg" | "banOcg">, game: Game): BanStatus | "Unreleased" | "Unlimited" {

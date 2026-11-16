@@ -211,4 +211,11 @@ export const CREDITS: Credit[] = [
     status: "fixed",
     date: "2026-10-27",
   },
+  {
+    by: ["@Ixmath"],
+    kind: "idea",
+    what: "Choose whether the release-year filter goes by TCG or OCG dates",
+    status: "added",
+    date: "2026-11-16",
+  },
 ];

@@ -96,8 +96,9 @@ with the YouTube comments (`src/lib/reports.ts`, `src/app/api/report/route.ts`).
 (`include`, with the reason shown on the result).
 
 Cards can also be filtered by format (TCG, OCG, Master Duel, Duel Links, Speed Duel, GOAT, OCG GOAT,
-Edison, Common Charity, as YGOPRODeck lists them) and by the year they first came out: in the OCG
-for an OCG format, otherwise in the TCG.
+Edison, Common Charity, as YGOPRODeck lists them) and by the year they first came out, in the TCG
+or the OCG as chosen (`dates=tcg|ocg`); left unchosen, it is the OCG for an OCG format and otherwise
+the TCG.
 
 The same download carries each card's Master Duel rarity and its Genesys points (the TCG list).
 Both are shown on every card and can be filtered on. When Konami changes the point list, run

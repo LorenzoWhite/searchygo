@@ -42,6 +42,8 @@ export interface SearchQuery {
   /** First released in or between these years (see releaseDate). */
   yearFrom?: number;
   yearTo?: number;
+  /** Whose release dates the year filter and the date order go by; absent means as releaseDate decides. */
+  dates?: "tcg" | "ocg";
   mdRarities?: MasterDuelRarity[];
   /** Either bound also limits the search to cards that can be played in Genesys. */
   genesysMin?: number;
@@ -57,7 +59,7 @@ export interface SearchQuery {
 }
 
 /** What a card is ordered by; undefined when it has none (a Spell's ATK, a "?" DEF, an unreleased card's date). */
-function sortValue(card: Card, by: SortBy, format?: string): string | number | undefined {
+function sortValue(card: Card, by: SortBy, format?: string, dates?: "tcg" | "ocg"): string | number | undefined {
   switch (by) {
     case "name":
       return card.name;
@@ -68,7 +70,7 @@ function sortValue(card: Card, by: SortBy, format?: string): string | number | u
     case "level":
       return card.level ?? card.rank ?? card.linkRating;
     case "date":
-      return releaseDate(card, format);
+      return releaseDate(card, format, dates);
     case "popular":
       return card.views;
     default:
@@ -85,7 +87,7 @@ function arrange<T>(items: T[], cardOf: (item: T) => Card, query: SearchQuery): 
   if (!by || by === "match") return items;
   const sign = (query.dir ?? SORT_DIRECTIONS[by]) === "asc" ? 1 : -1;
   return items
-    .map((item, rank) => ({ item, rank, value: sortValue(cardOf(item), by, query.format) }))
+    .map((item, rank) => ({ item, rank, value: sortValue(cardOf(item), by, query.format, query.dates) }))
     .sort((a, b) => {
       if (a.value === undefined || b.value === undefined) return a.value === b.value ? a.rank - b.rank : a.value === undefined ? 1 : -1;
       const order = typeof a.value === "string" ? a.value.localeCompare(b.value as string) : a.value - (b.value as number);
@@ -817,7 +819,7 @@ export class SearchIndex {
 
 function buildFilter(query: SearchQuery, inSet?: (card: Card) => boolean): (entry: Entry) => boolean {
   const checks: ((entry: Entry) => boolean)[] = [];
-  const { kinds, attributes, monsterTypes, subtypes, roles, levelMin, levelMax, atkMin, atkMax, defMin, defMax, format, yearFrom, yearTo, mdRarities, genesysMin, genesysMax } = query;
+  const { kinds, attributes, monsterTypes, subtypes, roles, levelMin, levelMax, atkMin, atkMax, defMin, defMax, format, yearFrom, yearTo, dates, mdRarities, genesysMin, genesysMax } = query;
 
   if (kinds?.length) checks.push(({ card }) => kinds.includes(card.kind));
   if (attributes?.length) checks.push(({ card }) => !!card.attribute && attributes.includes(card.attribute));
@@ -841,7 +843,7 @@ function buildFilter(query: SearchQuery, inSet?: (card: Card) => boolean): (entr
   if (format) checks.push(({ card }) => card.formats.includes(format));
   if (yearFrom != null || yearTo != null) {
     checks.push(({ card }) => {
-      const year = Number(releaseDate(card, format)?.slice(0, 4));
+      const year = Number(releaseDate(card, format, dates)?.slice(0, 4));
       return year > 0 && year >= (yearFrom ?? 0) && year <= (yearTo ?? Infinity);
     });
   }

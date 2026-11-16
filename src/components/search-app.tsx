@@ -40,6 +40,8 @@ interface Filters {
   /** First released in or between these years. */
   from: string;
   to: string;
+  /** "tcg" or "ocg": whose release dates to go by; "" lets the format decide (see releaseDate). */
+  dates: string;
   /** How results are ordered (see SORTS); "" is best match. */
   sort: string;
   /** "asc" or "desc"; "" is the order's natural direction. */
@@ -69,6 +71,7 @@ const NO_FILTERS: Filters = {
   format: "",
   from: "",
   to: "",
+  dates: "",
   sort: "",
   dir: "",
   literal: "",
@@ -193,6 +196,7 @@ function fromParams(params: URLSearchParams): { text: string; filters: Filters }
       format: FORMATS.find((format) => format === params.get("format")) ?? "",
       from: year(params.get("from")),
       to: year(params.get("to")),
+      dates: params.get("dates") === "tcg" || params.get("dates") === "ocg" ? params.get("dates")! : "",
       sort: SORTS.find((sort) => sort !== "match" && sort === params.get("sort")) ?? "",
       dir: params.get("dir") === "asc" || params.get("dir") === "desc" ? params.get("dir")! : "",
       literal: params.get("literal") === "1" ? "1" : "",
@@ -443,6 +447,8 @@ export function SearchApp() {
   const hasFilters = Object.entries(filters).some(([name, value]) => !(SEARCH_OWNED as readonly string[]).includes(name) && value);
   const hasQuery = hasFilters || exclusions.length > 0 || text.trim() !== "";
   // Counted as a person would count them: a Level range or a Genesys bound is one filter, not two.
+  /** Whose release dates the year filter goes by: the one chosen, or the one the format implies. */
+  const releasedIn = filters.dates || (filters.format.startsWith("OCG") ? "ocg" : "tcg");
   const filtersOn = [filters.kind, filters.role, filters.attribute, filters.type, filters.levelMin || filters.levelMax, filters.rarity, filters.genesysMin || filters.genesysMax, filters.format, filters.from || filters.to, filters.atkMin || filters.atkMax, filters.defMin || filters.defMax, filters.set, filters.deck].filter(Boolean).length;
   const remaining = data ? data.total - data.results.length : 0;
   const reading = status === "error" ? undefined : data?.reading;
@@ -748,10 +754,24 @@ export function SearchApp() {
                 </select>
               </div>
 
-              <fieldset className="field">
-                <legend title="The year the card first came out: in the OCG for an OCG format, otherwise in the TCG">
-                  Released{filters.format.startsWith("OCG") ? " (OCG)" : ""}
-                </legend>
+              <div className="field field--wide" role="group" aria-labelledby="released-label">
+                <div className="field__head">
+                  <span className="field__label" id="released-label" title="The year the card first came out in the TCG or the OCG">
+                    Released
+                  </span>
+                  <span className="field__switch" role="group" aria-label="Release dates from">
+                    {(["tcg", "ocg"] as const).map((game) => (
+                      <button
+                        key={game}
+                        type="button"
+                        aria-pressed={releasedIn === game}
+                        onClick={() => setFilter({ dates: game })}
+                      >
+                        {game.toUpperCase()}
+                      </button>
+                    ))}
+                  </span>
+                </div>
                 <div className="range">
                   <select aria-label="Released from" value={filters.from} onChange={(event) => setFilter({ from: event.target.value })}>
                     <option value="">From</option>
@@ -767,7 +787,7 @@ export function SearchApp() {
                     ))}
                   </select>
                 </div>
-              </fieldset>
+              </div>
 
               <div className="field field--set">
                 <label htmlFor="set">TCG set</label>

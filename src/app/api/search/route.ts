@@ -60,6 +60,7 @@ export async function GET(request: NextRequest) {
     deck: list(params, "deck", ["main", "extra"] as const)[0],
     related: integer(params, "related"),
     ...years(integer(params, "from"), integer(params, "to")),
+    dates: list(params, "dates", ["tcg", "ocg"] as const)[0],
     sort: list(params, "sort", SORTS)[0],
     dir: list(params, "dir", ["asc", "desc"] as const)[0],
     mdRarities: list(params, "rarity", MD_RARITIES),

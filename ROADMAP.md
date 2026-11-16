@@ -34,8 +34,9 @@ Search for the cards that stop an archetype: "counters to Tearlaments", "how to 
   stop another, ranked by how well they counter, with both the "Fits" and "Stops" lines.
 - **Status.** Search built ("counters to X", "how to beat X", "X side deck", "Branded synergy that
   counters Spright"), switched on only where `SEARCHYGO_COUNTERS=1` is set: on in `.env.local`, off
-  on the live site until it is set in Vercel. Profiles are made 50 a day, newest archetypes first
-  (`pnpm cards:synergy --job counters --order recent --limit 50 --provider opencode --model glm-5.3`).
+  on the live site until it is set in Vercel. Every archetype with 3 or more cards has a profile (530);
+  new archetypes after a card refresh are profiled with
+  `pnpm cards:synergy --job counters --order recent --provider deepseek`.
 - **Checked so far.** Sample of Ninja, Clown Crew, Radiant Typhoon, Spright and Live☆Twin, judged by
   a player. Lessons now in the prompt: GY hate only hurts decks whose effects activate in the GY,
   not decks that trigger on being sent or Tributed (Clown Crew); stopping draws counts (Droll, Veiler
@@ -147,15 +148,9 @@ themselves, with nothing to run by hand.
 - **Connector / deep search.** An MCP endpoint so people can bring their own model, and a live-model
   "deep search" for long questions.
 
-## Parked
-
-Ideas written down but not planned, because the search already covers them another way.
-
-- **"Or" in searches.** One search that finds cards doing any of several things ("pay LP or opponent
-  gains LP"). Each part can already be searched on its own, so this is a convenience, not a fix.
-
 ## Done
 
+- Release-year filter by TCG or OCG dates
 - "Stops X" searches: "floodgate that stops searching", "stops Spells", "can't be banished", "skip the Battle Phase"
 - Related cards, phase 1: names it, named on it, same archetype, archetype support
 - Advanced search panel; search by ATK/DEF; TCG set filter
